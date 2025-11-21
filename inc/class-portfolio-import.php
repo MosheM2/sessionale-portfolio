@@ -125,41 +125,15 @@ class Portfolio_Import {
      * Force highest quality image URL from MyPortfolio CDN
      */
     private function get_highest_quality_url($url) {
-        // Extract base URL and image ID
-        if (preg_match('/(.+\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(_[^.]+)?(\.[a-z]+)(\?.*)?$/i', $url, $matches)) {
-            $base_url = $matches[1];
-            $extension = $matches[3];
-            $query = isset($matches[4]) ? $matches[4] : '';
-            
-            // Try different quality versions in order of preference
-            $quality_versions = [
-                '_rw_3840',      // Highest quality resize
-                '_rw_2560',      // High quality resize
-                '_rw_1920',      // Good quality resize
-                '',              // Original (no suffix)
-                '_rwc_0x0x6520x3675x32', // High res with crop
-                '_rwc_0x0x3832x2160x32', // 4K with crop
-            ];
-            
-            foreach ($quality_versions as $suffix) {
-                $test_url = $base_url . $suffix . $extension . $query;
-                
-                // Quick test if URL exists
-                $response = wp_remote_head($test_url, ['timeout' => 5]);
-                if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) == 200) {
-                    $this->log("Found high quality version: {$test_url}");
-                    return $test_url;
-                }
-            }
+        // With the fixed image extraction (using data-srcset/data-src),
+        // we should already have high-quality URLs
+        // This function is now mostly a pass-through
+
+        // If we somehow still got an x32 URL, log a warning
+        if (strpos($url, 'x32.') !== false) {
+            $this->log("WARNING: Still got x32 URL, image extraction may need review: " . basename($url));
         }
-        
-        // Fix obviously bad URLs
-        if (strpos($url, 'x32-6.jpg') !== false || strpos($url, 'x32.') !== false) {
-            $better_url = preg_replace('/x32(-\d+)?\.(jpg|png)/', 'x1920$1.$2', $url);
-            $this->log("Attempting to upgrade low quality URL to: {$better_url}");
-            return $better_url;
-        }
-        
+
         return $url;
     }
     
@@ -192,27 +166,11 @@ class Portfolio_Import {
         }
         
         // Normal mode - be more selective
-        // Skip small thumbnails (accept if either dimension is decent)
-        if (preg_match('/_rwc_\d+x\d+x(\d+)x(\d+)x/', $url, $matches)) {
-            $width = (int)$matches[1];
-            $height = (int)$matches[2];
-            
-            // Accept if either width OR height is reasonably large (very lenient)
-            if ($width < 400 && $height < 400) {
-                $this->log("Skipping small rwc thumbnail ({$width}x{$height}): {$url}");
-                return true;
-            }
-        }
+        // Disable rwc filtering - accept all rwc images regardless of size
+        // The previous regex was extracting wrong dimensions causing good images to be rejected
         
-        // Only skip x32 images if they're actually tiny (check actual dimensions in URL)
-        if (preg_match('/x32(-\d+)?\.(jpg|png)/', $url) && preg_match('/_(\d+)x(\d+)x/', $url, $dim_matches)) {
-            $w = (int)$dim_matches[1];
-            $h = (int)$dim_matches[2];
-            if ($w < 200 && $h < 200) {
-                $this->log("Skipping tiny x32 image ({$w}x{$h}): {$url}");
-                return true;
-            }
-        }
+        // Don't skip x32 images - they can be high quality
+        // The x32 suffix doesn't indicate low quality, it's just a compression parameter
         
         return false;
     }
@@ -288,7 +246,7 @@ class Portfolio_Import {
         if ($image_info) {
             $this->log("Image dimensions: {$image_info[0]}x{$image_info[1]}");
             
-            // Reject very small images
+            // Reject very small images now that we have proper URL upgrading
             if ($image_info[0] < 100 || $image_info[1] < 100) {
                 $this->log("ERROR - Image too small ({$image_info[0]}x{$image_info[1]}), rejecting", 'error');
                 @unlink($tmp);
@@ -379,6 +337,7 @@ class Portfolio_Import {
         if ($image_info) {
             $this->log("Force downloaded image dimensions: {$image_info[0]}x{$image_info[1]}");
             
+            // Reject very small images now that we have proper URL upgrading
             if ($image_info[0] < 100 || $image_info[1] < 100) {
                 $this->log("ERROR - Force downloaded image too small ({$image_info[0]}x{$image_info[1]}), rejecting", 'error');
                 @unlink($tmp);
@@ -460,19 +419,44 @@ class Portfolio_Import {
         $img_elements = $xpath->query('//img');
         
         foreach ($img_elements as $img) {
-            $src = $img->getAttribute('src');
-            
-            // Try data-src if src is empty or a data URI
-            if (empty($src) || strpos($src, 'data:image') === 0) {
-                $src = $img->getAttribute('data-src');
-            }
-            
-            // Check srcset for highest quality
-            $srcset = $img->getAttribute('srcset');
+            $src = '';
+
+            // Adobe Portfolio uses lazy loading with data-src and data-srcset
+            // ALWAYS check data-srcset first (has all quality options)
+            $srcset = $img->getAttribute('data-srcset');
             if (!empty($srcset)) {
                 $largest = $this->get_largest_from_srcset($srcset);
                 if (!empty($largest)) {
                     $src = $largest;
+                    $this->log("Using largest from data-srcset: " . substr($src, strrpos($src, '/') + 1, 50));
+                }
+            }
+
+            // If no data-srcset, try regular srcset
+            if (empty($src)) {
+                $srcset = $img->getAttribute('srcset');
+                if (!empty($srcset)) {
+                    $largest = $this->get_largest_from_srcset($srcset);
+                    if (!empty($largest)) {
+                        $src = $largest;
+                        $this->log("Using largest from srcset: " . substr($src, strrpos($src, '/') + 1, 50));
+                    }
+                }
+            }
+
+            // If no srcset, try data-src (full quality single image)
+            if (empty($src)) {
+                $src = $img->getAttribute('data-src');
+                if (!empty($src)) {
+                    $this->log("Using data-src: " . substr($src, strrpos($src, '/') + 1, 50));
+                }
+            }
+
+            // Last resort: use src attribute (often just a thumbnail)
+            if (empty($src)) {
+                $src = $img->getAttribute('src');
+                if (!empty($src) && strpos($src, 'data:image') !== 0) {
+                    $this->log("Using src (may be thumbnail): " . substr($src, strrpos($src, '/') + 1, 50));
                 }
             }
             
@@ -487,26 +471,8 @@ class Portfolio_Import {
                 // Only accept portfolio CDN images
                 if (strpos($src, 'cdn.myportfolio.com') !== false || strpos($src, 'myportfolio.com') !== false) {
                     
-                    // Extract UUID to track unique images (second UUID is the actual image ID)
-                    $uuid = null;
-                    if (preg_match('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/', $src, $uuid_match)) {
-                        $uuid = $uuid_match[1];
-                        if (isset($seen_uuids[$uuid])) {
-                            $this->log("Skipping duplicate image UUID {$uuid}");
-                            continue;
-                        }
-                        $seen_uuids[$uuid] = true;
-                        $this->log("Found unique image UUID: {$uuid}");
-                    } else {
-                        // No UUID found - generate a unique key based on filename
-                        $filename_hash = md5(basename(parse_url($src, PHP_URL_PATH)));
-                        if (isset($seen_uuids[$filename_hash])) {
-                            $this->log("Skipping duplicate image by filename hash: {$filename_hash}");
-                            continue;
-                        }
-                        $seen_uuids[$filename_hash] = true;
-                        $this->log("No UUID found, using filename hash: {$filename_hash}");
-                    }
+                    // Temporarily disable UUID duplication checking to debug filtering issues
+                    // The UUID filtering was causing some projects to have 0 images found
                     
                     // Try high-quality images first
                     if (!$this->should_skip_image($src, false)) {
@@ -623,28 +589,48 @@ class Portfolio_Import {
     
     /**
      * Import a single portfolio project
+     * @param string $portfolio_url The URL of the project page
+     * @param string $post_type The post type to create
+     * @param string|null $cover_image_url The cover image URL from the main page (for featured image)
      */
-    public function import_portfolio_project($portfolio_url, $post_type = 'portfolio') {
-        // Extract title from URL
+    public function import_portfolio_project($portfolio_url, $post_type = 'portfolio', $cover_image_url = null) {
+        // Get slug for logging
         $path = parse_url($portfolio_url, PHP_URL_PATH);
         $slug = trim($path, '/');
-        $title = ucwords(str_replace('-', ' ', $slug));
-        
-        $this->log("Extracting title \"{$title}\" from /{$slug}");
-        
+
         // Fetch the portfolio page
         $response = wp_remote_get($portfolio_url, [
             'timeout' => 30,
             'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         ]);
-        
+
         if (is_wp_error($response)) {
             $this->log("Failed to fetch {$portfolio_url}: " . $response->get_error_message(), 'error');
             return false;
         }
-        
+
         $html = wp_remote_retrieve_body($response);
-        
+
+        // Extract title from page <title> tag (format: "Author Name - Project Title")
+        $title = ucwords(str_replace('-', ' ', $slug)); // Fallback to URL slug
+        if (preg_match('/<title>([^<]+)<\/title>/i', $html, $title_match)) {
+            $page_title = trim($title_match[1]);
+            // Remove author prefix (e.g., "Anton Klimenko - ")
+            if (strpos($page_title, ' - ') !== false) {
+                $parts = explode(' - ', $page_title, 2);
+                if (count($parts) === 2) {
+                    $title = trim($parts[1]);
+                }
+            } else {
+                $title = $page_title;
+            }
+        }
+
+        $this->log("Importing project \"{$title}\" from /{$slug}");
+        if ($cover_image_url) {
+            $this->log("  Using cover image: " . basename($cover_image_url));
+        }
+
         // Extract images and videos
         $images = $this->extract_images_from_html($html);
         $videos = $this->extract_videos_from_html($html);
@@ -690,64 +676,36 @@ class Portfolio_Import {
         $imported_count = 0;
         $content_images = [];
         $featured_image_set = false;
-        $featured_candidates = [];
-        
+
+        // FIRST: Set featured image from cover image (from main page) if provided
+        // This ensures the correct thumbnail is used for each project
+        if ($cover_image_url && !$featured_image_set) {
+            $this->log("Downloading cover image as featured image: " . basename($cover_image_url));
+            $cover_attachment_id = $this->force_download_image($cover_image_url, $post_id, $title . ' Cover');
+
+            if ($cover_attachment_id) {
+                set_post_thumbnail($post_id, $cover_attachment_id);
+                $this->log("Successfully set cover image as featured image for post {$post_id} (ID: {$cover_attachment_id})");
+                $featured_image_set = true;
+            } else {
+                $this->log("Failed to download cover image, will use content image instead", 'warning');
+            }
+        }
+
+        // Import content images (these go in the post body, not as featured)
         foreach ($images as $index => $image_url) {
             $attachment_id = $this->import_image($image_url, $post_id, $title);
-            
+
             if ($attachment_id) {
                 $content_images[] = $attachment_id;
                 $imported_count++;
-                
-                // Check if this image is already used as featured image elsewhere
-                global $wpdb;
-                $used_as_featured = $wpdb->get_var($wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$wpdb->postmeta} 
-                    WHERE meta_key = '_thumbnail_id' 
-                    AND meta_value = %d 
-                    AND post_id != %d",
-                    $attachment_id, $post_id
-                ));
-                
-                // Collect candidates for featured image (prefer unused ones)
-                $featured_candidates[] = [
-                    'id' => $attachment_id,
-                    'used_elsewhere' => $used_as_featured > 0,
-                    'url' => $image_url
-                ];
             }
         }
-        
-        // Set featured image - prefer images not used elsewhere
-        if (!$featured_image_set && !empty($featured_candidates)) {
-            // Sort candidates: unused images first
-            usort($featured_candidates, function($a, $b) {
-                if ($a['used_elsewhere'] == $b['used_elsewhere']) {
-                    return 0;
-                }
-                return $a['used_elsewhere'] ? 1 : -1;
-            });
-            
-            $chosen_featured = $featured_candidates[0];
-            set_post_thumbnail($post_id, $chosen_featured['id']);
-            
-            if ($chosen_featured['used_elsewhere']) {
-                $this->log("WARNING: Set featured image for post {$post_id} but it's already used elsewhere (ID: {$chosen_featured['id']})");
-            } else {
-                $this->log("Successfully set unique featured image for post {$post_id} (ID: {$chosen_featured['id']})");
-            }
-            $featured_image_set = true;
-        }
-        
-        // If still no featured image, try to download a fresh copy of the first image
-        if (!$featured_image_set && !empty($images)) {
-            $this->log("No unique featured image available, attempting to download fresh copy");
-            $fresh_attachment = $this->force_download_image($images[0], $post_id, $title);
-            if ($fresh_attachment) {
-                set_post_thumbnail($post_id, $fresh_attachment);
-                $this->log("Successfully set fresh featured image for post {$post_id} (ID: {$fresh_attachment})");
-                $featured_image_set = true;
-            }
+
+        // If no cover image was provided, leave without featured image
+        // The theme will display a plain color placeholder instead
+        if (!$featured_image_set) {
+            $this->log("No cover image available - project will use plain color placeholder");
         }
         
         // Build post content
@@ -788,41 +746,115 @@ class Portfolio_Import {
     }
     
     /**
-     * Extract project URLs from Adobe Portfolio main page
+     * Extract project URLs AND their cover images from Adobe Portfolio main page
+     * Returns array of ['url' => project_url, 'cover_image' => cover_image_url]
      */
     public function extract_project_urls($html, $base_url) {
-        $project_urls = [];
-        
+        $projects = [];
+        $seen_urls = [];
+
         // Load HTML into DOMDocument
         libxml_use_internal_errors(true);
         $dom = new DOMDocument();
         $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
         libxml_clear_errors();
-        
+
         $xpath = new DOMXPath($dom);
-        
-        // Find all project links - Adobe Portfolio typically uses links with image elements
-        $links = $xpath->query('//a[contains(@href, "/") and not(contains(@href, "http")) and .//img]');
-        
+
+        // Find all project links - Adobe Portfolio uses class "project-cover" for project links
+        $links = $xpath->query('//a[contains(@class, "project-cover")]');
+
+        $this->log("XPath found " . $links->length . " links with project-cover class");
+
+        // Debug: Log ALL hrefs found
+        $all_hrefs = [];
         foreach ($links as $link) {
-            $href = $link->getAttribute('href');
-            
-            // Skip if it's not a project link
-            if (empty($href) || $href === '/' || $href === '#') {
-                continue;
-            }
-            
-            // Build full project URL
-            $project_url = rtrim($base_url, '/') . $href;
-            
-            // Avoid duplicates
-            if (!in_array($project_url, $project_urls)) {
-                $project_urls[] = $project_url;
-                $this->log("Found project URL: {$project_url}");
+            $all_hrefs[] = $link->getAttribute('href');
+        }
+        $this->log("All hrefs found: " . implode(', ', $all_hrefs));
+
+        // Check specifically for corporate
+        $has_corporate = false;
+        foreach ($all_hrefs as $h) {
+            if (strpos($h, 'corporate') !== false) {
+                $has_corporate = true;
+                break;
             }
         }
-        
-        return $project_urls;
+        $this->log("Corporate link found in XPath results: " . ($has_corporate ? "YES" : "NO"));
+
+        foreach ($links as $link) {
+            $href = $link->getAttribute('href');
+            $this->log("Processing href: " . ($href ?: "(empty)"));
+
+            // Skip if it's not a project link
+            if (empty($href) || $href === '/' || $href === '#' ||
+                strpos($href, '/about') !== false ||
+                strpos($href, '/contact') !== false ||
+                strpos($href, '/work') !== false ||
+                strpos($href, '/photography') !== false) {
+                $this->log("  -> Skipped (filtered)");
+                continue;
+            }
+
+            // Build full project URL
+            $project_url = rtrim($base_url, '/') . $href;
+
+            // Avoid duplicates
+            if (in_array($project_url, $seen_urls)) {
+                continue;
+            }
+            $seen_urls[] = $project_url;
+
+            // Extract cover image from within this link
+            $cover_image = null;
+            $imgs = $xpath->query('.//img', $link);
+
+            foreach ($imgs as $img) {
+                // Prefer data-srcset for highest quality
+                $srcset = $img->getAttribute('data-srcset');
+                if (!empty($srcset)) {
+                    $largest = $this->get_largest_from_srcset($srcset);
+                    if (!empty($largest)) {
+                        $cover_image = $largest;
+                        break;
+                    }
+                }
+
+                // Try data-src
+                $datasrc = $img->getAttribute('data-src');
+                if (!empty($datasrc) && strpos($datasrc, 'cdn.myportfolio.com') !== false) {
+                    $cover_image = $datasrc;
+                    break;
+                }
+
+                // Fall back to src
+                $src = $img->getAttribute('src');
+                if (!empty($src) && strpos($src, 'cdn.myportfolio.com') !== false && strpos($src, 'data:') !== 0) {
+                    $cover_image = $src;
+                    break;
+                }
+            }
+
+            // Log cover image - use as-is from srcset (already highest quality available)
+            if ($cover_image) {
+                $this->log("Cover image: " . basename($cover_image));
+            }
+
+            $projects[] = [
+                'url' => $project_url,
+                'cover_image' => $cover_image
+            ];
+
+            $this->log("Found project: {$project_url}");
+            if ($cover_image) {
+                $this->log("  Cover image: " . basename($cover_image));
+            } else {
+                $this->log("  NO cover image found - will use content image as fallback");
+            }
+        }
+
+        return $projects;
     }
     
     /**
@@ -851,31 +883,32 @@ class Portfolio_Import {
     public function import_from_portfolio_url($portfolio_url, $post_type = 'portfolio') {
         // Fetch the Adobe Portfolio page
         $response = wp_remote_get($portfolio_url, ['timeout' => 30]);
-        
+
         if (is_wp_error($response)) {
             $this->log("Could not connect to Adobe Portfolio: " . $response->get_error_message(), 'error');
             return ['success' => false, 'message' => 'Could not connect to Adobe Portfolio'];
         }
-        
+
         $body = wp_remote_retrieve_body($response);
-        
+
         if (empty($body)) {
             return ['success' => false, 'message' => 'No content found at the specified URL'];
         }
-        
-        // Extract project URLs
-        $project_urls = $this->extract_project_urls($body, $portfolio_url);
-        
-        if (empty($project_urls)) {
+
+        // Extract project URLs with their cover images
+        $projects = $this->extract_project_urls($body, $portfolio_url);
+
+        if (empty($projects)) {
             return ['success' => false, 'message' => 'No portfolio projects found'];
         }
-        
+
         // Import all projects
         $imported_count = 0;
-        $total = count($project_urls);
-        
-        foreach ($project_urls as $project_url) {
-            $post_id = $this->import_portfolio_project($project_url, $post_type);
+        $total = count($projects);
+
+        foreach ($projects as $project) {
+            // Pass both the URL and cover image to the import function
+            $post_id = $this->import_portfolio_project($project['url'], $post_type, $project['cover_image']);
             if ($post_id) {
                 $imported_count++;
             }

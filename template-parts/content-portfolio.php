@@ -14,7 +14,7 @@ $categories = get_the_terms(get_the_ID(), 'portfolio_category');
         <?php if (has_post_thumbnail()) : ?>
             <?php the_post_thumbnail('portfolio-thumbnail', array('class' => 'portfolio-item-image')); ?>
         <?php else : ?>
-            <div class="portfolio-item-placeholder" style="aspect-ratio: 16/9; background: #f0f0f0;"></div>
+            <div class="portfolio-item-placeholder" style="aspect-ratio: 16/9; background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);"></div>
         <?php endif; ?>
         
         <div class="portfolio-item-content">

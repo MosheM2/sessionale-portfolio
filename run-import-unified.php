@@ -105,6 +105,17 @@ if (!isset($_GET['run']) && !isset($_GET['cleanup']) && !isset($_GET['delete']))
     </div>
     
     <div class="option-section">
+        <h3>Debug: Test Project Detection</h3>
+        <p>Test if all projects are being found without actually importing:</p>
+        <form method="get">
+            <input type="hidden" name="test" value="1">
+            <input type="text" name="portfolio_url" placeholder="https://yourname.myportfolio.com" value="https://aklimenko.myportfolio.com" required>
+            <br>
+            <button type="submit" class="secondary">Test Project Detection</button>
+        </form>
+    </div>
+
+    <div class="option-section">
         <h3>Maintenance Options</h3>
         <button class="secondary" onclick="window.location.href='?cleanup=1'">Run Cleanup Only</button>
         <button class="danger" onclick="if(confirm('Delete ALL portfolio projects? This cannot be undone!')) window.location.href='?delete=1'">Delete All Projects</button>
@@ -120,6 +131,82 @@ if (!isset($_GET['run']) && !isset($_GET['cleanup']) && !isset($_GET['delete']))
     <button class="secondary" onclick="window.location.href='<?php echo admin_url(); ?>'">Back to Dashboard</button>
     
     <?php
+    echo '</div></body></html>';
+    exit;
+}
+
+// Handle test request - check project detection without importing
+if (isset($_GET['test']) && !empty($_GET['portfolio_url'])) {
+    $portfolio_url = esc_url_raw($_GET['portfolio_url']);
+    echo '<div class="info"><strong>Testing Project Detection</strong></div>';
+    echo '<div class="log">';
+    echo "Testing project detection for: {$portfolio_url}\n";
+    echo "========================================\n\n";
+
+    // Fetch the page
+    $response = wp_remote_get($portfolio_url, ['timeout' => 30]);
+    if (is_wp_error($response)) {
+        echo "ERROR: Could not fetch page - " . $response->get_error_message() . "\n";
+    } else {
+        $html = wp_remote_retrieve_body($response);
+        echo "Fetched " . strlen($html) . " bytes\n\n";
+
+        // Parse with DOMDocument
+        libxml_use_internal_errors(true);
+        $dom = new DOMDocument();
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+
+        $xpath = new DOMXPath($dom);
+        $links = $xpath->query('//a[contains(@class, "project-cover")]');
+
+        echo "XPath found: " . $links->length . " links with project-cover class\n\n";
+
+        echo "Projects found:\n";
+        echo "---------------\n";
+        $hrefs = [];
+        foreach ($links as $i => $link) {
+            $href = $link->getAttribute('href');
+            $hrefs[] = $href;
+
+            // Check if has cover image
+            $imgs = $xpath->query('.//img', $link);
+            $has_img = ($imgs->length > 0);
+
+            $is_corporate = (strpos($href, 'corporate') !== false);
+            $status = $has_img ? '[has cover]' : '[NO cover]';
+
+            echo sprintf("%2d. %s %s%s\n",
+                $i + 1,
+                $href,
+                $status,
+                $is_corporate ? " <-- CORPORATE" : ""
+            );
+        }
+
+        echo "\n========================================\n";
+        echo "Total projects found: " . count($hrefs) . "\n";
+        echo "Unique projects: " . count(array_unique($hrefs)) . "\n";
+
+        // Check for corporate specifically
+        $has_corporate = false;
+        foreach ($hrefs as $h) {
+            if (strpos($h, 'corporate') !== false) {
+                $has_corporate = true;
+                break;
+            }
+        }
+        echo "\n/corporate found: " . ($has_corporate ? "YES ✓" : "NO ✗") . "\n";
+
+        if (!$has_corporate) {
+            echo "\nWARNING: Corporate project not detected!\n";
+            echo "Checking if /corporate exists in HTML: ";
+            echo (strpos($html, '/corporate') !== false ? "YES (exists in HTML)" : "NO") . "\n";
+        }
+    }
+
+    echo '</div>';
+    echo '<button class="secondary" onclick="window.location.href=\'?\'">Back</button>';
     echo '</div></body></html>';
     exit;
 }
