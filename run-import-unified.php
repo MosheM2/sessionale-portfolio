@@ -12,6 +12,11 @@
 // Load WordPress
 require_once('../../../wp-load.php');
 
+// Extend PHP limits for video downloads
+set_time_limit(0); // No time limit
+ini_set('memory_limit', '512M');
+ini_set('max_execution_time', 0);
+
 // Load the unified import class
 require_once('inc/class-portfolio-import.php');
 

@@ -141,10 +141,17 @@ class Portfolio_Import {
      * Should skip this image URL?
      */
     private function should_skip_image($url, $allow_fallback = false) {
-        // Always skip cover art thumbnails (carw) - these are tiny square previews
+        // Skip tiny carw thumbnails (x32, x64, etc.) but NOT high-res ones (x5120, x2560, etc.)
         if (strpos($url, '_carw_') !== false) {
-            $this->log("Skipping thumbnail (carw): {$url}");
-            return true;
+            // Extract the size from URL like _carw_16x9x5120.jpg
+            if (preg_match('/_carw_\d+x\d+x(\d+)\./', $url, $matches)) {
+                $size = (int)$matches[1];
+                if ($size < 500) {
+                    $this->log("Skipping tiny carw thumbnail ({$size}px): " . basename($url));
+                    return true;
+                }
+                // High-res carw images (5120, 2560, 1920, etc.) are OK
+            }
         }
         
         // If we're allowing fallback images (when no good images found), be less strict
@@ -171,10 +178,115 @@ class Portfolio_Import {
         
         // Don't skip x32 images - they can be high quality
         // The x32 suffix doesn't indicate low quality, it's just a compression parameter
-        
+
         return false;
     }
-    
+
+    /**
+     * Download Adobe video from embed URL
+     * Returns attachment ID on success, false on failure
+     */
+    private function download_adobe_video($embed_url, $post_id, $title = '') {
+        // Reset time limit for each video download
+        @set_time_limit(300);
+
+        $this->log("Attempting to download Adobe video from: {$embed_url}");
+
+        // Fetch the embed page to extract the MP4 URL
+        $response = wp_remote_get($embed_url, [
+            'timeout' => 30,
+            'headers' => [
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            ]
+        ]);
+
+        if (is_wp_error($response)) {
+            $this->log("Failed to fetch Adobe embed page: " . $response->get_error_message(), 'error');
+            return false;
+        }
+
+        $html = wp_remote_retrieve_body($response);
+
+        // Extract MP4 URL from ccv$serverData JavaScript object
+        // Look for: "mp4URL": "https://cdn-prod-ccv.adobe.com/..."
+        if (!preg_match('/"mp4URL":\s*"([^"]+)"/', $html, $matches)) {
+            $this->log("Could not find MP4 URL in Adobe embed page", 'error');
+            return false;
+        }
+
+        $mp4_url = $matches[1];
+        // Unescape URL (convert \u002F to /, etc.)
+        $mp4_url = json_decode('"' . $mp4_url . '"');
+
+        $this->log("Found MP4 URL: {$mp4_url}");
+
+        // Try to get higher quality version - default is 576p, try 1080 and 720
+        // URL pattern: {video_id}_576.mp4 -> try {video_id}_1080.mp4
+        $qualities = ['1080', '720', '576'];
+        $best_url = $mp4_url;
+
+        foreach ($qualities as $quality) {
+            $test_url = preg_replace('/_\d+\.mp4/', "_{$quality}.mp4", $mp4_url);
+            if ($test_url !== $mp4_url) {
+                // Test if this quality exists
+                $test_response = wp_remote_head($test_url, [
+                    'timeout' => 10,
+                    'headers' => [
+                        'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    ]
+                ]);
+
+                if (!is_wp_error($test_response) && wp_remote_retrieve_response_code($test_response) === 200) {
+                    $best_url = $test_url;
+                    $this->log("Found {$quality}p quality version");
+                    break;
+                }
+            }
+        }
+
+        $this->log("Downloading video: {$best_url}");
+
+        // Download the video file
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+
+        // Download with extended timeout for videos
+        add_filter('http_request_args', array($this, 'add_download_headers'), 10, 2);
+        $tmp = download_url($best_url, 120); // 2 minute timeout for videos
+        remove_filter('http_request_args', array($this, 'add_download_headers'), 10);
+
+        if (is_wp_error($tmp)) {
+            $this->log("Failed to download video: " . $tmp->get_error_message(), 'error');
+            return false;
+        }
+
+        // Get video ID from URL for filename
+        if (preg_match('/\/([A-Za-z0-9_-]+)_\d+\.mp4/', $best_url, $id_match)) {
+            $video_id = $id_match[1];
+        } else {
+            $video_id = 'video-' . time();
+        }
+
+        $file_array = [
+            'name' => sanitize_file_name($video_id . '.mp4'),
+            'tmp_name' => $tmp
+        ];
+
+        // Upload to media library
+        $attachment_id = media_handle_sideload($file_array, $post_id, $title);
+
+        if (is_wp_error($attachment_id)) {
+            @unlink($tmp);
+            $this->log("Failed to sideload video: " . $attachment_id->get_error_message(), 'error');
+            return false;
+        }
+
+        $this->log("Successfully uploaded video with attachment ID: {$attachment_id}");
+        return $attachment_id;
+    }
+
     /**
      * Download and import image with duplicate detection
      */
@@ -414,10 +526,12 @@ class Portfolio_Import {
         libxml_clear_errors();
         
         $xpath = new DOMXPath($dom);
-        
-        // Extract ALL images from the page
-        $img_elements = $xpath->query('//img');
-        
+
+        // Extract images from the page, EXCLUDING "You may also like" navigation section
+        // Only exclude images inside .project-covers (plural) - that's the navigation div at the bottom
+        // Don't exclude .project-cover (singular) as that appears in actual content
+        $img_elements = $xpath->query('//img[not(ancestor::div[@class="project-covers" or contains(@class, "project-covers ")])]');
+
         foreach ($img_elements as $img) {
             $src = '';
 
@@ -529,10 +643,11 @@ class Portfolio_Import {
                 }
                 
                 // Check if it's a video platform
-                if (strpos($src, 'vimeo.com') !== false || 
-                    strpos($src, 'youtube.com') !== false || 
-                    strpos($src, 'youtu.be') !== false) {
-                    
+                if (strpos($src, 'vimeo.com') !== false ||
+                    strpos($src, 'youtube.com') !== false ||
+                    strpos($src, 'youtu.be') !== false ||
+                    strpos($src, 'adobe.io') !== false) {
+
                     if (!in_array($src, $videos)) {
                         $videos[] = $src;
                         $this->log("Found video {$src}");
@@ -558,7 +673,75 @@ class Portfolio_Import {
         
         return array_unique($videos);
     }
-    
+
+    /**
+     * Extract description/credits text from portfolio page HTML
+     */
+    private function extract_description_from_html($html) {
+        // Parse HTML
+        libxml_use_internal_errors(true);
+        $dom = new DOMDocument();
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+
+        $xpath = new DOMXPath($dom);
+
+        // Look for description paragraph in page header
+        $descriptions = $xpath->query('//p[@class="description"]');
+        foreach ($descriptions as $desc) {
+            $text = trim($desc->textContent);
+            if (!empty($text)) {
+                $this->log("Found description text: " . substr($text, 0, 50) . "...");
+                return $text;
+            }
+        }
+
+        // Also try meta description as fallback
+        $metas = $xpath->query('//meta[@name="description"]/@content');
+        foreach ($metas as $meta) {
+            $text = trim($meta->textContent);
+            if (!empty($text)) {
+                $this->log("Found meta description: " . substr($text, 0, 50) . "...");
+                return $text;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Extract external button links from portfolio page HTML
+     */
+    private function extract_button_links_from_html($html) {
+        $links = [];
+
+        // Parse HTML
+        libxml_use_internal_errors(true);
+        $dom = new DOMDocument();
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+
+        $xpath = new DOMXPath($dom);
+
+        // Look for button modules with external links
+        // Adobe Portfolio uses: <a href="..." class="button-module ...">
+        $buttons = $xpath->query('//div[contains(@class, "project-module-button")]//a[@href]');
+        foreach ($buttons as $button) {
+            $href = $button->getAttribute('href');
+            $text = trim($button->textContent);
+
+            if (!empty($href) && strpos($href, 'http') === 0) {
+                $links[] = [
+                    'url' => $href,
+                    'text' => $text ?: 'View Link'
+                ];
+                $this->log("Found button link: {$href} ({$text})");
+            }
+        }
+
+        return $links;
+    }
+
     /**
      * Get largest image URL from srcset attribute
      */
@@ -594,6 +777,9 @@ class Portfolio_Import {
      * @param string|null $cover_image_url The cover image URL from the main page (for featured image)
      */
     public function import_portfolio_project($portfolio_url, $post_type = 'portfolio', $cover_image_url = null) {
+        // Reset time limit for each project import
+        @set_time_limit(600);
+
         // Get slug for logging
         $path = parse_url($portfolio_url, PHP_URL_PATH);
         $slug = trim($path, '/');
@@ -631,13 +817,15 @@ class Portfolio_Import {
             $this->log("  Using cover image: " . basename($cover_image_url));
         }
 
-        // Extract images and videos
+        // Extract description, images, videos, and button links
+        $description = $this->extract_description_from_html($html);
         $images = $this->extract_images_from_html($html);
         $videos = $this->extract_videos_from_html($html);
-        
-        $this->log("Total found for {$portfolio_url} - Images: " . count($images) . ", Videos: " . count($videos));
-        
-        if (empty($images) && empty($videos)) {
+        $button_links = $this->extract_button_links_from_html($html);
+
+        $this->log("Total found for {$portfolio_url} - Images: " . count($images) . ", Videos: " . count($videos) . ", Links: " . count($button_links) . ", Has description: " . (!empty($description) ? 'yes' : 'no'));
+
+        if (empty($images) && empty($videos) && empty($button_links)) {
             $this->log("No content found for {$portfolio_url}", 'warning');
             return false;
         }
@@ -710,7 +898,24 @@ class Portfolio_Import {
         
         // Build post content
         $content = '';
-        
+
+        // Add description/credits at the beginning
+        if (!empty($description)) {
+            // Convert newlines to proper paragraph breaks
+            $desc_lines = explode("\n", $description);
+            $desc_html = '';
+            foreach ($desc_lines as $line) {
+                $line = trim($line);
+                if (!empty($line)) {
+                    $desc_html .= '<p>' . esc_html($line) . '</p>' . "\n";
+                }
+            }
+            $content .= '<!-- wp:group {"className":"portfolio-credits"} --><div class="wp-block-group portfolio-credits">' . "\n";
+            $content .= $desc_html;
+            $content .= '</div><!-- /wp:group -->' . "\n\n";
+            $this->log("Added description to content");
+        }
+
         // Add images to content
         foreach ($content_images as $attachment_id) {
             $image_full = wp_get_attachment_image_src($attachment_id, 'full');
@@ -728,19 +933,55 @@ class Portfolio_Import {
         }
         
         // Add videos to content
+        $video_count = 0;
         foreach ($videos as $video_url) {
-            $content .= "\n\n" . $video_url . "\n\n";
-            $this->log("Added video to content: {$video_url}");
+            // Check if it's an Adobe video - download and embed locally
+            if (strpos($video_url, 'adobe.io') !== false) {
+                $video_attachment_id = $this->download_adobe_video($video_url, $post_id, $title);
+                if ($video_attachment_id) {
+                    $video_src = wp_get_attachment_url($video_attachment_id);
+                    $content .= sprintf(
+                        "\n\n" . '<figure class="wp-block-video"><video controls src="%s" class="wp-video-%d"></video></figure>' . "\n\n",
+                        esc_url($video_src),
+                        $video_attachment_id
+                    );
+                    $video_count++;
+                    $this->log("Added local video to content: {$video_src}");
+                } else {
+                    $this->log("Failed to download Adobe video, skipping: {$video_url}", 'warning');
+                }
+            } else {
+                // YouTube/Vimeo - use WordPress embed block
+                $content .= sprintf(
+                    "\n\n" . '<!-- wp:embed {"url":"%s","type":"video","providerNameSlug":"youtube"} --><figure class="wp-block-embed is-type-video"><div class="wp-block-embed__wrapper">%s</div></figure><!-- /wp:embed -->' . "\n\n",
+                    esc_url($video_url),
+                    esc_url($video_url)
+                );
+                $video_count++;
+                $this->log("Added embedded video to content: {$video_url}");
+            }
         }
-        
+
+        // Add button links to content
+        $link_count = 0;
+        foreach ($button_links as $link) {
+            $content .= sprintf(
+                "\n\n" . '<!-- wp:buttons --><div class="wp-block-buttons"><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="%s" target="_blank" rel="noopener noreferrer">%s</a></div></div><!-- /wp:buttons -->' . "\n\n",
+                esc_url($link['url']),
+                esc_html($link['text'])
+            );
+            $link_count++;
+            $this->log("Added button link to content: {$link['url']}");
+        }
+
         // Update post content
         wp_update_post([
             'ID' => $post_id,
             'post_content' => $content
         ]);
-        
-        $this->log("Created content for post {$post_id} - Downloaded: {$imported_count} images, Added: " . count($videos) . " videos");
-        $this->log("Successfully created project \"{$title}\" with {$imported_count} images and " . count($videos) . " videos");
+
+        $this->log("Created content for post {$post_id} - Downloaded: {$imported_count} images, Added: {$video_count} videos, Added: {$link_count} links");
+        $this->log("Successfully created project \"{$title}\" with {$imported_count} images, {$video_count} videos, and {$link_count} links");
         
         return $post_id;
     }
