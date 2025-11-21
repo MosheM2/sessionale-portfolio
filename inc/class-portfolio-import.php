@@ -71,8 +71,8 @@ class Portfolio_Import {
             return $attachment_id;
         }
         
-        // Extract image UUID from URL
-        if (preg_match('/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/', $url, $matches)) {
+        // Extract image UUID from URL (second UUID is the actual image ID, first is portfolio account)
+        if (preg_match('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/', $url, $matches)) {
             $image_uuid = $matches[1];
             
             // Check if we already have this image UUID
@@ -192,21 +192,26 @@ class Portfolio_Import {
         }
         
         // Normal mode - be more selective
-        // Skip small thumbnails (under 1200px)
-        if (preg_match('/_rwc_\d+x\d+x(\d+)x(\d+)/', $url, $matches)) {
+        // Skip small thumbnails (accept if either dimension is decent)
+        if (preg_match('/_rwc_\d+x\d+x(\d+)x(\d+)x/', $url, $matches)) {
             $width = (int)$matches[1];
             $height = (int)$matches[2];
             
-            if ($width < 1200 && $height < 1200) {
+            // Accept if either width OR height is reasonably large (very lenient)
+            if ($width < 400 && $height < 400) {
                 $this->log("Skipping small rwc thumbnail ({$width}x{$height}): {$url}");
                 return true;
             }
         }
         
-        // Skip very low quality x32 images only if they have specific tiny dimensions
-        if (preg_match('/x32(-\d+)?\.(jpg|png)/', $url)) {
-            $this->log("Skipping low quality x32 image: {$url}");
-            return true;
+        // Only skip x32 images if they're actually tiny (check actual dimensions in URL)
+        if (preg_match('/x32(-\d+)?\.(jpg|png)/', $url) && preg_match('/_(\d+)x(\d+)x/', $url, $dim_matches)) {
+            $w = (int)$dim_matches[1];
+            $h = (int)$dim_matches[2];
+            if ($w < 200 && $h < 200) {
+                $this->log("Skipping tiny x32 image ({$w}x{$h}): {$url}");
+                return true;
+            }
         }
         
         return false;
@@ -332,9 +337,10 @@ class Portfolio_Import {
             update_post_meta($attachment_id, '_file_hash', $file_hash);
         }
         
-        // Extract and save image UUID
-        if (preg_match('/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/', $url, $matches)) {
+        // Extract and save image UUID (second UUID is the actual image ID)
+        if (preg_match('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/', $url, $matches)) {
             update_post_meta($attachment_id, '_portfolio_image_uuid', $matches[1]);
+            $this->log("Stored image UUID: {$matches[1]} for attachment {$attachment_id}");
         }
         
         $this->imported_images[$url] = $attachment_id;
@@ -481,15 +487,25 @@ class Portfolio_Import {
                 // Only accept portfolio CDN images
                 if (strpos($src, 'cdn.myportfolio.com') !== false || strpos($src, 'myportfolio.com') !== false) {
                     
-                    // Extract UUID to track unique images
+                    // Extract UUID to track unique images (second UUID is the actual image ID)
                     $uuid = null;
-                    if (preg_match('/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/', $src, $uuid_match)) {
+                    if (preg_match('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/', $src, $uuid_match)) {
                         $uuid = $uuid_match[1];
                         if (isset($seen_uuids[$uuid])) {
-                            $this->log("Skipping duplicate UUID {$uuid}");
+                            $this->log("Skipping duplicate image UUID {$uuid}");
                             continue;
                         }
                         $seen_uuids[$uuid] = true;
+                        $this->log("Found unique image UUID: {$uuid}");
+                    } else {
+                        // No UUID found - generate a unique key based on filename
+                        $filename_hash = md5(basename(parse_url($src, PHP_URL_PATH)));
+                        if (isset($seen_uuids[$filename_hash])) {
+                            $this->log("Skipping duplicate image by filename hash: {$filename_hash}");
+                            continue;
+                        }
+                        $seen_uuids[$filename_hash] = true;
+                        $this->log("No UUID found, using filename hash: {$filename_hash}");
                     }
                     
                     // Try high-quality images first
