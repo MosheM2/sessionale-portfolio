@@ -66,9 +66,20 @@ class Portfolio_Import {
         ));
         
         if ($attachment_id) {
-            $this->log("Image already exists by URL (ID: {$attachment_id}), reusing");
-            $this->imported_images[$url] = $attachment_id;
-            return $attachment_id;
+            // Verify the attachment still exists and has a valid file
+            $attachment = get_post($attachment_id);
+            if ($attachment && $attachment->post_type === 'attachment') {
+                $file_path = get_attached_file($attachment_id);
+                if ($file_path && file_exists($file_path)) {
+                    $this->log("Image already exists by URL (ID: {$attachment_id}), reusing");
+                    $this->imported_images[$url] = $attachment_id;
+                    return $attachment_id;
+                } else {
+                    $this->log("Attachment {$attachment_id} exists but file is missing, will re-download");
+                }
+            } else {
+                $this->log("Attachment {$attachment_id} no longer exists, will re-download");
+            }
         }
         
         // Extract image UUID from URL (second UUID is the actual image ID, first is portfolio account)
@@ -85,10 +96,21 @@ class Portfolio_Import {
             ));
             
             if ($existing) {
-                $this->log("Found existing image by UUID (ID: {$existing}), reusing");
-                $this->imported_images[$url] = $existing;
-                update_post_meta($existing, '_source_url', $url);
-                return $existing;
+                // Verify the attachment still exists and has a valid file
+                $attachment = get_post($existing);
+                if ($attachment && $attachment->post_type === 'attachment') {
+                    $file_path = get_attached_file($existing);
+                    if ($file_path && file_exists($file_path)) {
+                        $this->log("Found existing image by UUID (ID: {$existing}), reusing");
+                        $this->imported_images[$url] = $existing;
+                        update_post_meta($existing, '_source_url', $url);
+                        return $existing;
+                    } else {
+                        $this->log("Attachment {$existing} (UUID) exists but file is missing, will re-download");
+                    }
+                } else {
+                    $this->log("Attachment {$existing} (UUID) no longer exists, will re-download");
+                }
             }
         }
         
@@ -114,10 +136,17 @@ class Portfolio_Import {
         ));
         
         if ($attachment_id) {
-            $this->image_hash_map[$hash] = $attachment_id;
-            return $attachment_id;
+            // Verify the attachment still exists and has a valid file
+            $attachment = get_post($attachment_id);
+            if ($attachment && $attachment->post_type === 'attachment') {
+                $file_path = get_attached_file($attachment_id);
+                if ($file_path && file_exists($file_path)) {
+                    $this->image_hash_map[$hash] = $attachment_id;
+                    return $attachment_id;
+                }
+            }
         }
-        
+
         return false;
     }
     
