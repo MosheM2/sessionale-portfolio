@@ -41,6 +41,11 @@ add_action('after_setup_theme', 'portfolio_migration_setup');
 function portfolio_migration_scripts() {
     wp_enqueue_style('portfolio-migration-style', get_stylesheet_uri(), array(), '1.0.0');
     wp_enqueue_script('portfolio-migration-script', get_template_directory_uri() . '/js/main.js', array('jquery'), '1.0.0', true);
+
+    // Portfolio gallery script for single portfolio pages
+    if (is_singular('portfolio')) {
+        wp_enqueue_script('portfolio-gallery', get_template_directory_uri() . '/js/portfolio-gallery.js', array(), '1.0.0', true);
+    }
 }
 add_action('wp_enqueue_scripts', 'portfolio_migration_scripts');
 

@@ -591,58 +591,59 @@ img {
    Layout Modes
    ========================================================================== */
 
-/* Auto Layout - Smart grid based on aspect ratio */
+/* Auto Layout - True Masonry using CSS Columns */
 .layout-auto .project-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 20px;
+    display: block;
+    column-count: 3;
+    column-gap: 20px;
 }
 
-/* Landscape items span full width */
+/* All items in masonry */
+.layout-auto .project-content > * {
+    break-inside: avoid;
+    margin-bottom: 20px;
+}
+
+/* Landscape items span full width - break out of columns */
 .layout-auto .project-content .media-landscape {
-    grid-column: 1 / -1;
+    column-span: all;
 }
 
-/* Ensure landscape videos are full width and centered */
+/* Ensure landscape videos are full width */
 .layout-auto .project-content figure.wp-block-video.media-landscape,
 .layout-auto .project-content figure.wp-block-image.media-landscape {
-    grid-column: 1 / -1;
+    column-span: all;
     width: 100%;
     max-width: 100%;
 }
 
-/* When ALL content is landscape, switch to single column */
+/* When ALL content is landscape, single column behavior */
 .layout-auto .project-content.all-landscape {
-    grid-template-columns: 1fr;
+    column-count: 1;
 }
 
-.layout-auto .project-content.all-landscape .media-landscape {
-    grid-column: auto;
-    width: 100%;
-}
-
-/* Portrait items stay in grid */
+/* Portrait items flow naturally in columns */
 .layout-auto .project-content .media-portrait {
-    grid-column: auto;
+    width: 100%;
 }
 
 /* Credits block always full width */
 .layout-auto .project-content .portfolio-credits {
-    grid-column: 1 / -1;
+    column-span: all;
 }
 
 /* Buttons always full width */
 .layout-auto .project-content .wp-block-buttons {
-    grid-column: 1 / -1;
+    column-span: all;
 }
 
-/* YouTube/Vimeo embeds - check for portrait */
+/* YouTube/Vimeo embeds - full width by default */
 .layout-auto .project-content .wp-block-embed {
-    grid-column: 1 / -1;
+    column-span: all;
 }
 
 .layout-auto .project-content .wp-block-embed.media-portrait {
-    grid-column: auto;
+    column-span: none;
 }
 
 /* Full Width Layout - Single column */
@@ -657,16 +658,21 @@ img {
     width: 100%;
 }
 
-/* Grid Layout - Always 3 columns */
+/* Grid Layout - Always 3 columns masonry */
 .layout-grid .project-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 20px;
+    display: block;
+    column-count: 3;
+    column-gap: 20px;
+}
+
+.layout-grid .project-content > * {
+    break-inside: avoid;
+    margin-bottom: 20px;
 }
 
 .layout-grid .project-content .portfolio-credits,
 .layout-grid .project-content .wp-block-buttons {
-    grid-column: 1 / -1;
+    column-span: all;
 }
 
 /* Portrait media items styling */
@@ -693,24 +699,161 @@ img {
     background: #000;
 }
 
-/* Responsive: 2 columns on tablets */
-@media (max-width: 1024px) {
-    .layout-auto .project-content,
-    .layout-grid .project-content {
-        grid-template-columns: 1fr 1fr;
-    }
+/* Masonry layout stays 3 columns on all devices (same as source) */
+
+/* ==========================================================================
+   Gallery Row Layout (JavaScript-based smart masonry)
+   ========================================================================== */
+
+.gallery-row {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    align-items: flex-start;
 }
 
-/* Responsive: Stack to single column on mobile */
+.gallery-row figure {
+    margin: 0;
+}
+
+.gallery-row figure img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 2px;
+}
+
+/* Compact row - 4 items (L+P+L+P pattern) with equal widths */
+.gallery-row-compact {
+    height: 25vw; /* Height relative to viewport width for consistent aspect */
+    max-height: 350px;
+    min-height: 180px;
+    align-items: stretch;
+}
+
+.gallery-row-compact figure {
+    overflow: hidden;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.gallery-row-compact figure img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+}
+
+/* ==========================================================================
+   Portfolio Lightbox
+   ========================================================================== */
+
+.portfolio-lightbox {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.portfolio-lightbox.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.portfolio-lightbox .lightbox-content {
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.portfolio-lightbox .lightbox-content img {
+    max-width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.portfolio-lightbox .lightbox-content img.loaded {
+    opacity: 1;
+}
+
+.portfolio-lightbox .lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 40px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+    z-index: 10001;
+}
+
+.portfolio-lightbox .lightbox-close:hover {
+    opacity: 1;
+}
+
+.portfolio-lightbox .lightbox-prev,
+.portfolio-lightbox .lightbox-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 60px;
+    height: 60px;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 50px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+    z-index: 10001;
+}
+
+.portfolio-lightbox .lightbox-prev {
+    left: 20px;
+}
+
+.portfolio-lightbox .lightbox-next {
+    right: 20px;
+}
+
+.portfolio-lightbox .lightbox-prev:hover,
+.portfolio-lightbox .lightbox-next:hover {
+    opacity: 1;
+}
+
+/* Mobile lightbox adjustments */
 @media (max-width: 768px) {
-    .layout-auto .project-content,
-    .layout-grid .project-content {
-        grid-template-columns: 1fr;
+    .portfolio-lightbox .lightbox-prev,
+    .portfolio-lightbox .lightbox-next {
+        width: 40px;
+        height: 40px;
+        font-size: 30px;
     }
 
-    .layout-auto .project-content .media-portrait,
-    .layout-auto .project-content .media-landscape {
-        grid-column: 1 / -1;
+    .portfolio-lightbox .lightbox-close {
+        width: 40px;
+        height: 40px;
+        font-size: 30px;
+        top: 10px;
+        right: 10px;
     }
 }
 
