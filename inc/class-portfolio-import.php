@@ -1113,8 +1113,11 @@ class Portfolio_Import {
                 continue;
             }
 
-            // Build full project URL
-            $project_url = rtrim($base_url, '/') . $href;
+            // Build full project URL using domain root, not the current page path
+            // The href is like "/portraits" and should become "https://domain.myportfolio.com/portraits"
+            $parsed_url = parse_url($base_url);
+            $domain_root = $parsed_url['scheme'] . '://' . $parsed_url['host'];
+            $project_url = $domain_root . $href;
 
             // Avoid duplicates
             if (in_array($project_url, $seen_urls)) {

@@ -51,6 +51,37 @@ $social_icons = array(
     </div>
 </footer>
 
+<script>
+// Mobile Menu Toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const menuToggle = document.querySelector('.menu-toggle');
+    const primaryMenu = document.querySelector('.primary-menu');
+    const body = document.body;
+
+    if (menuToggle && primaryMenu) {
+        menuToggle.addEventListener('click', function() {
+            this.classList.toggle('is-active');
+            primaryMenu.classList.toggle('is-open');
+            body.classList.toggle('menu-open');
+
+            // Update aria-expanded
+            const isExpanded = this.classList.contains('is-active');
+            this.setAttribute('aria-expanded', isExpanded);
+        });
+
+        // Close menu when clicking a link
+        primaryMenu.querySelectorAll('a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                menuToggle.classList.remove('is-active');
+                primaryMenu.classList.remove('is-open');
+                body.classList.remove('menu-open');
+                menuToggle.setAttribute('aria-expanded', 'false');
+            });
+        });
+    }
+});
+</script>
+
 <?php wp_footer(); ?>
 
 </body>

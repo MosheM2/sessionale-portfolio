@@ -29,6 +29,31 @@ body {
     background-color: #fff;
 }
 
+body.menu-open {
+    overflow: hidden;
+}
+
+/* WordPress Admin Bar Adjustments */
+.admin-bar .main-navigation .primary-menu {
+    top: 32px;
+    height: calc(100vh - 32px);
+}
+
+.admin-bar .menu-toggle.is-active {
+    top: 42px; /* 32px admin bar + 10px padding */
+}
+
+@media screen and (max-width: 782px) {
+    .admin-bar .main-navigation .primary-menu {
+        top: 46px;
+        height: calc(100vh - 46px);
+    }
+
+    .admin-bar .menu-toggle.is-active {
+        top: 56px; /* 46px admin bar + 10px padding */
+    }
+}
+
 a {
     color: #333;
     text-decoration: none;
@@ -47,30 +72,15 @@ img {
 
 /* Header Styles */
 .site-header {
-    padding: 40px 20px;
+    padding: 10px 20px;
     text-align: center;
     border-bottom: 1px solid #e0e0e0;
 }
 
-.site-title {
-    font-size: 28px;
-    font-weight: 600;
-    margin-bottom: 10px;
-}
-
-.site-title a {
-    color: #333;
-}
-
-.site-description {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 20px;
-}
-
 /* Navigation */
 .main-navigation {
-    margin-top: 20px;
+    margin: 0;
+    position: relative;
 }
 
 .main-navigation ul {
@@ -88,6 +98,126 @@ img {
     font-weight: 500;
 }
 
+/* Burger Menu Button */
+.menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 10px;
+    z-index: 1001;
+}
+
+.burger-icon {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 24px;
+    height: 18px;
+}
+
+.burger-icon span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background-color: #333;
+    transition: all 0.3s ease;
+}
+
+/* Burger icon animation when open */
+.menu-toggle.is-active .burger-icon span:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+}
+
+.menu-toggle.is-active .burger-icon span:nth-child(2) {
+    opacity: 0;
+}
+
+.menu-toggle.is-active .burger-icon span:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+}
+
+/* Mobile and Tablet: Show burger, hide menu by default */
+@media (max-width: 1024px) {
+    .menu-toggle {
+        display: block;
+        margin: 0 0 0 auto;
+        position: relative;
+        z-index: 1001;
+    }
+
+    .main-navigation .primary-menu {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #fff;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 0;
+        padding: 0;
+        z-index: 1000;
+    }
+
+    .main-navigation .primary-menu.is-open {
+        display: flex;
+    }
+
+    .main-navigation .primary-menu li {
+        text-align: center;
+    }
+
+    .main-navigation .primary-menu a {
+        display: block;
+        padding: 20px 40px;
+        font-size: 24px;
+        font-weight: 400;
+        letter-spacing: 2px;
+    }
+
+    .main-navigation .primary-menu a:hover {
+        opacity: 0.6;
+    }
+
+    /* Keep burger visible above fullscreen menu */
+    .menu-toggle.is-active {
+        position: fixed;
+        top: 10px;
+        right: 20px;
+        left: auto;
+        margin: 0;
+    }
+}
+
+/* Desktop: Hide burger, show menu */
+@media (min-width: 1025px) {
+    .menu-toggle {
+        display: none !important;
+    }
+
+    .main-navigation .primary-menu {
+        display: flex !important;
+        position: static !important;
+        width: auto !important;
+        height: auto !important;
+        background: transparent !important;
+        flex-direction: row !important;
+        justify-content: center !important;
+        gap: 30px !important;
+        padding: 0 !important;
+    }
+
+    .main-navigation .primary-menu a {
+        padding: 0 !important;
+        font-size: 14px !important;
+    }
+}
+
 /* Main Content */
 .site-content {
     max-width: 1400px;
@@ -103,6 +233,19 @@ img {
     margin-bottom: 60px;
 }
 
+/* Column variations for shortcode */
+.portfolio-grid.columns-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.portfolio-grid.columns-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.portfolio-grid.columns-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
 .portfolio-item {
     position: relative;
     overflow: hidden;
@@ -112,6 +255,41 @@ img {
 
 .portfolio-item:hover {
     transform: translateY(-5px);
+}
+
+.portfolio-item a {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.portfolio-thumbnail {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background-color: #e0e0e0;
+}
+
+.portfolio-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.portfolio-item:hover .portfolio-thumbnail img {
+    transform: scale(1.05);
+}
+
+.portfolio-placeholder {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.portfolio-title {
+    padding: 20px;
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0;
 }
 
 .portfolio-item-image {
@@ -141,6 +319,13 @@ img {
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-top: 5px;
+}
+
+/* Active menu item styling */
+.main-navigation .current-menu-item > a,
+.main-navigation .current_page_item > a {
+    color: #000;
+    font-weight: 600;
 }
 
 /* Single Portfolio Project */
@@ -509,16 +694,14 @@ img {
         gap: 20px;
     }
 
+    .portfolio-grid.columns-2,
+    .portfolio-grid.columns-3,
+    .portfolio-grid.columns-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
     .site-header {
-        padding: 30px 20px;
-    }
-
-    .site-title {
-        font-size: 24px;
-    }
-
-    .main-navigation ul {
-        gap: 20px;
+        padding: 10px 20px;
     }
 
     /* Single Portfolio Mobile */
@@ -564,13 +747,11 @@ img {
 }
 
 @media (max-width: 480px) {
-    .portfolio-grid {
+    .portfolio-grid,
+    .portfolio-grid.columns-2,
+    .portfolio-grid.columns-3,
+    .portfolio-grid.columns-4 {
         grid-template-columns: 1fr;
-    }
-
-    .main-navigation ul {
-        flex-direction: column;
-        gap: 15px;
     }
 
     .project-title {
@@ -674,6 +855,85 @@ img {
     padding: 20px;
     border-radius: 4px;
     text-align: center;
+}
+
+/* ==========================================================================
+   Contact Page Layout
+   ========================================================================== */
+
+.contact-page-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+/* Side by side on tablet and desktop */
+@media (min-width: 768px) {
+    .contact-page-layout {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 60px;
+    }
+
+    .contact-page-info {
+        flex: 0 0 300px;
+        position: sticky;
+        top: 40px;
+    }
+
+    .contact-page-form {
+        flex: 1;
+    }
+}
+
+@media (min-width: 1024px) {
+    .contact-page-layout {
+        gap: 80px;
+    }
+
+    .contact-page-info {
+        flex: 0 0 350px;
+    }
+}
+
+/* ==========================================================================
+   Contact Info
+   ========================================================================== */
+
+.contact-info {
+    text-align: left;
+    margin-bottom: 0;
+}
+
+.contact-info p {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.contact-info .contact-name {
+    font-size: 28px;
+    font-weight: 500;
+    margin-bottom: 20px;
+}
+
+.contact-info a {
+    color: #333;
+    text-decoration: none;
+    transition: opacity 0.3s ease;
+}
+
+.contact-info a:hover {
+    opacity: 0.7;
+}
+
+/* Mobile: center contact info */
+@media (max-width: 767px) {
+    .contact-info {
+        text-align: center;
+    }
 }
 
 /* ==========================================================================

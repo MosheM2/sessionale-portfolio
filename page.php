@@ -13,12 +13,18 @@ get_header(); ?>
         ?>
         
         <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
-            
+
+            <?php
+            // Only show page title for Contact page
+            $page_slug = get_post_field('post_name', get_post());
+            if ($page_slug === 'contact') :
+            ?>
             <header class="entry-header" style="max-width: 900px; margin: 0 auto 40px;">
                 <h1 class="entry-title" style="font-size: 36px; margin-bottom: 20px;">
                     <?php the_title(); ?>
                 </h1>
             </header>
+            <?php endif; ?>
             
             <?php if (has_post_thumbnail()) : ?>
                 <div class="entry-thumbnail" style="max-width: 1200px; margin: 0 auto 40px;">

@@ -115,18 +115,88 @@ function portfolio_migration_register_taxonomies() {
 add_action('init', 'portfolio_migration_register_taxonomies');
 
 /**
- * Add Admin Menu for Portfolio Import
+ * Add Sessionale Admin Menu (Top-Level Collapsible Menu)
  */
-function portfolio_migration_admin_menu() {
-    add_theme_page(
+function sessionale_admin_menu() {
+    // Add top-level menu
+    add_menu_page(
+        __('Sessionale Portfolio', 'sessionale-portfolio'),
+        __('Sessionale', 'sessionale-portfolio'),
+        'manage_options',
+        'sessionale-dashboard',
+        'portfolio_migration_import_page',
+        'dashicons-portfolio',
+        3 // Position after Dashboard
+    );
+
+    // Add Portfolio Import submenu (replaces the default first submenu item)
+    add_submenu_page(
+        'sessionale-dashboard',
         __('Portfolio Import', 'sessionale-portfolio'),
         __('Portfolio Import', 'sessionale-portfolio'),
         'manage_options',
-        'portfolio-migration-import',
+        'sessionale-dashboard', // Same slug as parent to replace default
         'portfolio_migration_import_page'
     );
+
+    // Add Social Links submenu
+    add_submenu_page(
+        'sessionale-dashboard',
+        __('Social Links', 'sessionale-portfolio'),
+        __('Social Links', 'sessionale-portfolio'),
+        'manage_options',
+        'sessionale-social-links',
+        'sessionale_social_links_page'
+    );
 }
-add_action('admin_menu', 'portfolio_migration_admin_menu');
+add_action('admin_menu', 'sessionale_admin_menu');
+
+/**
+ * Add Admin Menu Styling
+ */
+function sessionale_admin_styles() {
+    $screen = get_current_screen();
+
+    // Only load on our admin pages
+    if ($screen && strpos($screen->id, 'sessionale') !== false) {
+        ?>
+        <style>
+            /* Sessionale Admin Menu Styling */
+            #adminmenu .toplevel_page_sessionale-dashboard .wp-menu-image:before {
+                font-family: dashicons;
+                content: "\f322";
+            }
+
+            /* Highlight active menu */
+            #adminmenu .toplevel_page_sessionale-dashboard.wp-has-current-submenu > a,
+            #adminmenu .toplevel_page_sessionale-dashboard:hover > a {
+                background: linear-gradient(135deg, #2271b1 0%, #135e96 100%);
+            }
+
+            /* Style submenu items */
+            #adminmenu .toplevel_page_sessionale-dashboard ul.wp-submenu li a:hover,
+            #adminmenu .toplevel_page_sessionale-dashboard ul.wp-submenu li.current a {
+                color: #72aee6;
+            }
+
+            /* Page header styling */
+            .sessionale-wizard h1 {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .sessionale-wizard h1:before {
+                font-family: dashicons;
+                content: "\f322";
+                font-size: 30px;
+                color: #2271b1;
+            }
+        </style>
+        <?php
+    }
+}
+add_action('admin_head', 'sessionale_admin_styles');
 
 /**
  * Portfolio Import Admin Page - Setup Wizard
@@ -150,14 +220,15 @@ function portfolio_migration_import_page() {
             .sessionale-wizard .form-table th { width: 180px; }
             .sessionale-wizard .portfolio-source-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
             .sessionale-wizard .portfolio-source-row input[type="text"] { flex: 1; }
-            .sessionale-wizard .portfolio-source-row select { width: 150px; }
             .sessionale-wizard .remove-source { color: #dc3232; cursor: pointer; font-size: 18px; }
             .sessionale-wizard .add-source { margin-top: 10px; }
             .sessionale-wizard .section-description { color: #666; margin-bottom: 15px; }
-            .sessionale-wizard .social-links-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-            .sessionale-wizard .social-link-item { display: flex; align-items: center; gap: 8px; }
-            .sessionale-wizard .social-link-item input { flex: 1; }
             .sessionale-wizard .import-actions { margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
+            .sessionale-wizard .homepage-radio { cursor: pointer; display: flex; align-items: center; }
+            .sessionale-wizard .homepage-radio input[type="radio"] { display: none; }
+            .sessionale-wizard .homepage-radio .dashicons { color: #ccc; font-size: 20px; transition: color 0.2s; }
+            .sessionale-wizard .homepage-radio input[type="radio"]:checked + .dashicons { color: #2271b1; }
+            .sessionale-wizard .homepage-radio:hover .dashicons { color: #2271b1; }
         </style>
 
         <form method="post" id="sessionale-setup-form">
@@ -190,30 +261,30 @@ function portfolio_migration_import_page() {
             <!-- Section 2: Portfolio Sources -->
             <div class="card">
                 <h2><?php _e('2. Portfolio Sources', 'sessionale-portfolio'); ?></h2>
-                <p class="section-description"><?php _e('Add your Adobe Portfolio URLs and categorize them. You can add multiple sources.', 'sessionale-portfolio'); ?></p>
+                <p class="section-description"><?php _e('Add your Adobe Portfolio URLs and give each a category label. Select which one to show on the homepage.', 'sessionale-portfolio'); ?></p>
 
                 <div id="portfolio-sources-container">
-                    <?php if (empty($portfolio_sources)) : ?>
+                    <?php
+                    $homepage_source = isset($saved_settings['homepage_source']) ? $saved_settings['homepage_source'] : 0;
+                    if (empty($portfolio_sources)) : ?>
                         <div class="portfolio-source-row">
+                            <label class="homepage-radio" title="<?php _e('Show on Homepage', 'sessionale-portfolio'); ?>">
+                                <input type="radio" name="homepage_source" value="0" checked>
+                                <span class="dashicons dashicons-admin-home"></span>
+                            </label>
                             <input type="text" name="portfolio_urls[]" placeholder="https://yourname.myportfolio.com" class="regular-text">
-                            <select name="portfolio_categories[]">
-                                <option value="filmography"><?php _e('Filmography', 'sessionale-portfolio'); ?></option>
-                                <option value="photography"><?php _e('Photography', 'sessionale-portfolio'); ?></option>
-                                <option value="videography"><?php _e('Videography', 'sessionale-portfolio'); ?></option>
-                                <option value="other"><?php _e('Other', 'sessionale-portfolio'); ?></option>
-                            </select>
+                            <input type="text" name="portfolio_categories[]" placeholder="<?php _e('Category label...', 'sessionale-portfolio'); ?>" style="width: 150px;">
                             <span class="remove-source" title="<?php _e('Remove', 'sessionale-portfolio'); ?>">&times;</span>
                         </div>
                     <?php else : ?>
-                        <?php foreach ($portfolio_sources as $source) : ?>
+                        <?php foreach ($portfolio_sources as $i => $source) : ?>
                             <div class="portfolio-source-row">
+                                <label class="homepage-radio" title="<?php _e('Show on Homepage', 'sessionale-portfolio'); ?>">
+                                    <input type="radio" name="homepage_source" value="<?php echo $i; ?>" <?php checked($homepage_source, $i); ?>>
+                                    <span class="dashicons dashicons-admin-home"></span>
+                                </label>
                                 <input type="text" name="portfolio_urls[]" value="<?php echo esc_attr($source['url']); ?>" class="regular-text">
-                                <select name="portfolio_categories[]">
-                                    <option value="filmography" <?php selected($source['category'], 'filmography'); ?>><?php _e('Filmography', 'sessionale-portfolio'); ?></option>
-                                    <option value="photography" <?php selected($source['category'], 'photography'); ?>><?php _e('Photography', 'sessionale-portfolio'); ?></option>
-                                    <option value="videography" <?php selected($source['category'], 'videography'); ?>><?php _e('Videography', 'sessionale-portfolio'); ?></option>
-                                    <option value="other" <?php selected($source['category'], 'other'); ?>><?php _e('Other', 'sessionale-portfolio'); ?></option>
-                                </select>
+                                <input type="text" name="portfolio_categories[]" value="<?php echo esc_attr($source['category']); ?>" placeholder="<?php _e('Category label...', 'sessionale-portfolio'); ?>" style="width: 150px;">
                                 <span class="remove-source" title="<?php _e('Remove', 'sessionale-portfolio'); ?>">&times;</span>
                             </div>
                         <?php endforeach; ?>
@@ -221,6 +292,7 @@ function portfolio_migration_import_page() {
                 </div>
 
                 <button type="button" class="button add-source"><?php _e('+ Add Another Source', 'sessionale-portfolio'); ?></button>
+                <p class="description" style="margin-top: 10px;"><span class="dashicons dashicons-admin-home" style="font-size: 14px;"></span> = <?php _e('Show on Homepage', 'sessionale-portfolio'); ?></p>
             </div>
 
             <!-- Section 3: About Page -->
@@ -238,37 +310,9 @@ function portfolio_migration_import_page() {
                 </table>
             </div>
 
-            <!-- Section 4: Social Media Links -->
+            <!-- Section 4: Contact Page -->
             <div class="card">
-                <h2><?php _e('4. Social Media Links', 'sessionale-portfolio'); ?></h2>
-                <p class="section-description"><?php _e('Add your social media profile URLs (leave blank to skip).', 'sessionale-portfolio'); ?></p>
-
-                <div class="social-links-list">
-                    <?php
-                    $social_platforms = array(
-                        'instagram' => 'Instagram',
-                        'youtube' => 'YouTube',
-                        'vimeo' => 'Vimeo',
-                        'linkedin' => 'LinkedIn',
-                        'twitter' => 'Twitter / X',
-                        'facebook' => 'Facebook',
-                        'behance' => 'Behance',
-                        'dribbble' => 'Dribbble'
-                    );
-                    foreach ($social_platforms as $key => $label) :
-                        $value = isset($social_links[$key]) ? $social_links[$key] : '';
-                    ?>
-                        <div class="social-link-item">
-                            <label for="social_<?php echo $key; ?>" style="width: 80px;"><?php echo $label; ?></label>
-                            <input type="url" name="social_links[<?php echo $key; ?>]" id="social_<?php echo $key; ?>" value="<?php echo esc_attr($value); ?>" placeholder="https://">
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-
-            <!-- Section 5: Contact Page -->
-            <div class="card">
-                <h2><?php _e('5. Contact Page', 'sessionale-portfolio'); ?></h2>
+                <h2><?php _e('4. Contact Page', 'sessionale-portfolio'); ?></h2>
                 <p class="section-description"><?php _e('A contact page with a form will be automatically created. Form submissions will be sent to your email address.', 'sessionale-portfolio'); ?></p>
 
                 <p><label>
@@ -304,15 +348,15 @@ function portfolio_migration_import_page() {
     jQuery(document).ready(function($) {
         // Add new portfolio source row
         $('.add-source').on('click', function() {
+            var rowIndex = $('.portfolio-source-row').length;
             var newRow = `
                 <div class="portfolio-source-row">
+                    <label class="homepage-radio" title="<?php _e('Show on Homepage', 'sessionale-portfolio'); ?>">
+                        <input type="radio" name="homepage_source" value="${rowIndex}">
+                        <span class="dashicons dashicons-admin-home"></span>
+                    </label>
                     <input type="text" name="portfolio_urls[]" placeholder="https://yourname.myportfolio.com" class="regular-text">
-                    <select name="portfolio_categories[]">
-                        <option value="filmography"><?php _e('Filmography', 'sessionale-portfolio'); ?></option>
-                        <option value="photography"><?php _e('Photography', 'sessionale-portfolio'); ?></option>
-                        <option value="videography"><?php _e('Videography', 'sessionale-portfolio'); ?></option>
-                        <option value="other"><?php _e('Other', 'sessionale-portfolio'); ?></option>
-                    </select>
+                    <input type="text" name="portfolio_categories[]" placeholder="<?php _e('Category label...', 'sessionale-portfolio'); ?>" style="width: 150px;">
                     <span class="remove-source" title="<?php _e('Remove', 'sessionale-portfolio'); ?>">&times;</span>
                 </div>
             `;
@@ -394,6 +438,7 @@ function portfolio_migration_import_page() {
                 }
             });
         });
+
     });
     </script>
     <?php
@@ -473,13 +518,17 @@ function sessionale_save_settings() {
     parse_str($_POST['formData'], $form_data);
 
     // Save settings
+    $homepage_source = isset($form_data['homepage_source']) ? intval($form_data['homepage_source']) : 0;
+
     $settings = array(
         'owner_name' => sanitize_text_field($form_data['owner_name'] ?? ''),
         'owner_email' => sanitize_email($form_data['owner_email'] ?? ''),
         'owner_phone' => sanitize_text_field($form_data['owner_phone'] ?? ''),
         'about_url' => esc_url_raw($form_data['about_url'] ?? ''),
         'portfolio_sources' => array(),
-        'social_links' => array()
+        'social_links' => array(),
+        'homepage_source' => $homepage_source,
+        'create_contact_page' => !empty($form_data['create_contact_page'])
     );
 
     // Process portfolio sources
@@ -490,21 +539,23 @@ function sessionale_save_settings() {
                 if (!preg_match("~^(?:f|ht)tps?://~i", $url)) {
                     $url = "https://" . $url;
                 }
-                $settings['portfolio_sources'][] = array(
-                    'url' => esc_url_raw($url),
-                    'category' => sanitize_text_field($form_data['portfolio_categories'][$i] ?? 'other')
-                );
+                $category = sanitize_text_field($form_data['portfolio_categories'][$i] ?? '');
+                if (!empty($category)) {
+                    $settings['portfolio_sources'][] = array(
+                        'url' => esc_url_raw($url),
+                        'category' => $category
+                    );
+                }
             }
         }
     }
 
-    // Process social links
-    if (!empty($form_data['social_links'])) {
-        foreach ($form_data['social_links'] as $platform => $url) {
-            $url = trim($url);
-            if (!empty($url)) {
-                $settings['social_links'][$platform] = esc_url_raw($url);
-            }
+    // Auto-detect social links from the first portfolio source
+    if (!empty($settings['portfolio_sources'])) {
+        $first_portfolio_url = $settings['portfolio_sources'][0]['url'];
+        $detected_social = sessionale_extract_social_links($first_portfolio_url);
+        if (!empty($detected_social)) {
+            $settings['social_links'] = $detected_social;
         }
     }
 
@@ -526,7 +577,8 @@ function sessionale_save_settings() {
     );
 
     // Create contact page if requested
-    if (!empty($form_data['create_contact_page']) && !get_option('sessionale_contact_page_created')) {
+    $contact_page_id = null;
+    if (!empty($form_data['create_contact_page'])) {
         $contact_page_id = sessionale_create_contact_page();
         if ($contact_page_id) {
             update_option('sessionale_contact_page_created', true);
@@ -536,6 +588,7 @@ function sessionale_save_settings() {
     }
 
     // Import about page if URL provided
+    $about_page_id = null;
     if (!empty($settings['about_url'])) {
         $about_page_id = sessionale_import_about_page($settings['about_url']);
         if ($about_page_id) {
@@ -547,15 +600,27 @@ function sessionale_save_settings() {
     if (!empty($_POST['doImport']) && $_POST['doImport'] == '1') {
         $total_imported = 0;
         $importer = new Portfolio_Import();
+        $category_pages = array(); // Store created category pages
 
-        foreach ($settings['portfolio_sources'] as $source) {
+        foreach ($settings['portfolio_sources'] as $index => $source) {
             // Create or get the category term
-            $category_name = ucfirst($source['category']);
+            $category_name = $source['category'];
+            $category_slug = sanitize_title($category_name);
             $term = term_exists($category_name, 'portfolio_category');
             if (!$term) {
-                $term = wp_insert_term($category_name, 'portfolio_category');
+                $term = wp_insert_term($category_name, 'portfolio_category', array('slug' => $category_slug));
             }
             $category_id = is_array($term) ? $term['term_id'] : $term;
+
+            // Create category page
+            $page_id = sessionale_create_category_page($category_name, $category_slug);
+            if ($page_id) {
+                $category_pages[$index] = array(
+                    'id' => $page_id,
+                    'name' => $category_name,
+                    'slug' => $category_slug
+                );
+            }
 
             // Import from this source
             $result = $importer->import_from_portfolio_url($source['url'], 'portfolio');
@@ -584,6 +649,22 @@ function sessionale_save_settings() {
             }
         }
 
+        // Create a separate Home page that mirrors the selected category
+        if (isset($category_pages[$homepage_source])) {
+            $homepage_category_slug = $category_pages[$homepage_source]['slug'];
+            update_option('sessionale_homepage_category', $homepage_category_slug);
+
+            // Create or update the Home page
+            $home_page_id = sessionale_create_home_page($homepage_category_slug);
+            if ($home_page_id) {
+                update_option('show_on_front', 'page');
+                update_option('page_on_front', $home_page_id);
+            }
+        }
+
+        // Create navigation menu (links to category pages, not homepage)
+        sessionale_create_navigation_menu($category_pages, $about_page_id, $contact_page_id);
+
         $response['imported'] = $total_imported;
         $response['message'] = sprintf(__('Settings saved. %d projects imported!', 'sessionale-portfolio'), $total_imported);
     }
@@ -591,6 +672,38 @@ function sessionale_save_settings() {
     wp_send_json_success($response);
 }
 add_action('wp_ajax_sessionale_save_settings', 'sessionale_save_settings');
+
+/**
+ * Create Home Page that displays the selected category
+ */
+function sessionale_create_home_page($category_slug) {
+    // Check if home page already exists
+    $existing = get_page_by_path('home');
+
+    $page_content = '<!-- wp:shortcode -->
+[sessionale_portfolio category="' . esc_attr($category_slug) . '"]
+<!-- /wp:shortcode -->';
+
+    if ($existing) {
+        // Update existing home page
+        wp_update_post(array(
+            'ID' => $existing->ID,
+            'post_content' => $page_content
+        ));
+        return $existing->ID;
+    }
+
+    // Create new home page
+    $page_id = wp_insert_post(array(
+        'post_title' => __('Home', 'sessionale-portfolio'),
+        'post_name' => 'home',
+        'post_content' => $page_content,
+        'post_status' => 'publish',
+        'post_type' => 'page'
+    ));
+
+    return $page_id;
+}
 
 /**
  * Create Contact Page
@@ -602,16 +715,8 @@ function sessionale_create_contact_page() {
         return $existing->ID;
     }
 
-    $page_content = '<!-- wp:heading {"level":2} -->
-<h2>Get in Touch</h2>
-<!-- /wp:heading -->
-
-<!-- wp:paragraph -->
-<p>I\'d love to hear from you. Fill out the form below and I\'ll get back to you as soon as possible.</p>
-<!-- /wp:paragraph -->
-
-<!-- wp:shortcode -->
-[sessionale_contact_form]
+    $page_content = '<!-- wp:shortcode -->
+[sessionale_contact_page]
 <!-- /wp:shortcode -->';
 
     $page_id = wp_insert_post(array(
@@ -624,6 +729,209 @@ function sessionale_create_contact_page() {
 
     return $page_id;
 }
+
+/**
+ * Contact Page Shortcode - combines info and form in a wrapper
+ */
+function sessionale_contact_page_shortcode() {
+    ob_start();
+    ?>
+    <div class="contact-page-layout">
+        <div class="contact-page-info">
+            <?php echo sessionale_contact_info_shortcode(); ?>
+        </div>
+        <div class="contact-page-form">
+            <?php echo sessionale_contact_form_shortcode(); ?>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('sessionale_contact_page', 'sessionale_contact_page_shortcode');
+
+/**
+ * Contact Info Shortcode - displays owner name, phone, email
+ */
+function sessionale_contact_info_shortcode() {
+    $settings = get_option('sessionale_portfolio_settings', array());
+
+    $name = isset($settings['owner_name']) ? $settings['owner_name'] : '';
+    $email = isset($settings['owner_email']) ? $settings['owner_email'] : '';
+    $phone = isset($settings['owner_phone']) ? $settings['owner_phone'] : '';
+
+    ob_start();
+    ?>
+    <div class="contact-info">
+        <?php if (!empty($name)) : ?>
+            <p class="contact-name"><?php echo esc_html($name); ?></p>
+        <?php endif; ?>
+        <?php if (!empty($phone)) : ?>
+            <p class="contact-phone"><a href="tel:<?php echo esc_attr(preg_replace('/[^0-9+]/', '', $phone)); ?>"><?php echo esc_html($phone); ?></a></p>
+        <?php endif; ?>
+        <?php if (!empty($email)) : ?>
+            <p class="contact-email"><a href="mailto:<?php echo esc_attr($email); ?>"><?php echo esc_html($email); ?></a></p>
+        <?php endif; ?>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('sessionale_contact_info', 'sessionale_contact_info_shortcode');
+
+/**
+ * Create Category Page
+ */
+function sessionale_create_category_page($category_name, $category_slug) {
+    // Check if page already exists
+    $existing = get_page_by_path($category_slug);
+    if ($existing) {
+        return $existing->ID;
+    }
+
+    // Create page with shortcode to display portfolio items from this category
+    $page_content = '<!-- wp:shortcode -->' . "\n";
+    $page_content .= '[sessionale_portfolio category="' . esc_attr($category_slug) . '"]' . "\n";
+    $page_content .= '<!-- /wp:shortcode -->';
+
+    $page_id = wp_insert_post(array(
+        'post_title' => $category_name,
+        'post_name' => $category_slug,
+        'post_content' => $page_content,
+        'post_status' => 'publish',
+        'post_type' => 'page'
+    ));
+
+    // Store category association
+    if ($page_id) {
+        update_post_meta($page_id, '_portfolio_category', $category_slug);
+    }
+
+    return $page_id;
+}
+
+/**
+ * Create Navigation Menu
+ */
+function sessionale_create_navigation_menu($category_pages, $about_page_id = null, $contact_page_id = null) {
+    $menu_name = 'Portfolio Navigation';
+    $menu_location = 'primary';
+
+    // Check if menu exists, delete it to recreate
+    $existing_menu = wp_get_nav_menu_object($menu_name);
+    if ($existing_menu) {
+        wp_delete_nav_menu($existing_menu->term_id);
+    }
+
+    // Create new menu
+    $menu_id = wp_create_nav_menu($menu_name);
+
+    if (is_wp_error($menu_id)) {
+        return false;
+    }
+
+    $menu_order = 1;
+
+    // Add category pages to menu
+    foreach ($category_pages as $page_data) {
+        wp_update_nav_menu_item($menu_id, 0, array(
+            'menu-item-title' => $page_data['name'],
+            'menu-item-object' => 'page',
+            'menu-item-object-id' => $page_data['id'],
+            'menu-item-type' => 'post_type',
+            'menu-item-status' => 'publish',
+            'menu-item-position' => $menu_order++
+        ));
+    }
+
+    // Add About page if exists
+    if ($about_page_id) {
+        wp_update_nav_menu_item($menu_id, 0, array(
+            'menu-item-title' => __('About', 'sessionale-portfolio'),
+            'menu-item-object' => 'page',
+            'menu-item-object-id' => $about_page_id,
+            'menu-item-type' => 'post_type',
+            'menu-item-status' => 'publish',
+            'menu-item-position' => $menu_order++
+        ));
+    }
+
+    // Add Contact page if exists
+    if ($contact_page_id) {
+        wp_update_nav_menu_item($menu_id, 0, array(
+            'menu-item-title' => __('Contact', 'sessionale-portfolio'),
+            'menu-item-object' => 'page',
+            'menu-item-object-id' => $contact_page_id,
+            'menu-item-type' => 'post_type',
+            'menu-item-status' => 'publish',
+            'menu-item-position' => $menu_order++
+        ));
+    }
+
+    // Assign menu to location
+    $locations = get_theme_mod('nav_menu_locations', array());
+    $locations[$menu_location] = $menu_id;
+    set_theme_mod('nav_menu_locations', $locations);
+
+    return $menu_id;
+}
+
+/**
+ * Portfolio Shortcode - displays portfolio items by category
+ */
+function sessionale_portfolio_shortcode($atts) {
+    $atts = shortcode_atts(array(
+        'category' => '',
+        'columns' => 3,
+        'limit' => -1
+    ), $atts);
+
+    $args = array(
+        'post_type' => 'portfolio',
+        'posts_per_page' => $atts['limit'],
+        'orderby' => 'date',
+        'order' => 'DESC'
+    );
+
+    // Filter by category if specified
+    if (!empty($atts['category'])) {
+        $args['tax_query'] = array(
+            array(
+                'taxonomy' => 'portfolio_category',
+                'field' => 'slug',
+                'terms' => $atts['category']
+            )
+        );
+    }
+
+    $query = new WP_Query($args);
+
+    if (!$query->have_posts()) {
+        return '<p>' . __('No projects found.', 'sessionale-portfolio') . '</p>';
+    }
+
+    ob_start();
+    ?>
+    <div class="portfolio-grid columns-<?php echo esc_attr($atts['columns']); ?>">
+        <?php while ($query->have_posts()) : $query->the_post(); ?>
+            <article class="portfolio-item">
+                <a href="<?php the_permalink(); ?>">
+                    <?php if (has_post_thumbnail()) : ?>
+                        <div class="portfolio-thumbnail">
+                            <?php the_post_thumbnail('portfolio-thumbnail'); ?>
+                        </div>
+                    <?php else : ?>
+                        <div class="portfolio-thumbnail portfolio-placeholder"></div>
+                    <?php endif; ?>
+                    <h3 class="portfolio-title"><?php the_title(); ?></h3>
+                </a>
+            </article>
+        <?php endwhile; ?>
+    </div>
+    <?php
+    wp_reset_postdata();
+
+    return ob_get_clean();
+}
+add_shortcode('sessionale_portfolio', 'sessionale_portfolio_shortcode');
 
 /**
  * Import About Page from Adobe Portfolio
@@ -707,6 +1015,75 @@ function sessionale_import_about_page($url) {
     ));
 
     return $page_id;
+}
+
+/**
+ * Extract Social Media Links from Adobe Portfolio Page
+ */
+function sessionale_extract_social_links($url) {
+    $social_links = array();
+
+    // Fetch the portfolio page
+    $response = wp_remote_get($url, array(
+        'timeout' => 30,
+        'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    ));
+
+    if (is_wp_error($response)) {
+        return $social_links;
+    }
+
+    $html = wp_remote_retrieve_body($response);
+
+    // Parse HTML
+    libxml_use_internal_errors(true);
+    $dom = new DOMDocument();
+    $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+    libxml_clear_errors();
+
+    $xpath = new DOMXPath($dom);
+
+    // Social media URL patterns
+    $social_patterns = array(
+        'instagram' => array('instagram.com'),
+        'youtube' => array('youtube.com', 'youtu.be'),
+        'vimeo' => array('vimeo.com'),
+        'linkedin' => array('linkedin.com'),
+        'twitter' => array('twitter.com', 'x.com'),
+        'facebook' => array('facebook.com', 'fb.com'),
+        'behance' => array('behance.net'),
+        'dribbble' => array('dribbble.com')
+    );
+
+    // Find all links on the page
+    $links = $xpath->query('//a[@href]');
+
+    foreach ($links as $link) {
+        $href = $link->getAttribute('href');
+
+        if (empty($href) || strpos($href, 'http') !== 0) {
+            continue;
+        }
+
+        // Check each social platform
+        foreach ($social_patterns as $platform => $domains) {
+            // Skip if we already found this platform
+            if (isset($social_links[$platform])) {
+                continue;
+            }
+
+            foreach ($domains as $domain) {
+                if (strpos($href, $domain) !== false) {
+                    // Clean the URL (remove tracking params, etc.)
+                    $clean_url = strtok($href, '?');
+                    $social_links[$platform] = esc_url_raw($clean_url);
+                    break 2; // Found this platform, move to next link
+                }
+            }
+        }
+    }
+
+    return $social_links;
 }
 
 /**
@@ -893,3 +1270,67 @@ function portfolio_migration_activation() {
     flush_rewrite_rules();
 }
 add_action('after_switch_theme', 'portfolio_migration_activation');
+
+/* Social Links menu is now registered under the main Sessionale menu in sessionale_admin_menu() */
+
+/**
+ * Social Links Settings Page
+ */
+function sessionale_social_links_page() {
+    // Handle form submission
+    if (isset($_POST['sessionale_social_submit']) && check_admin_referer('sessionale_social_links', 'sessionale_social_nonce')) {
+        $settings = get_option('sessionale_portfolio_settings', array());
+        $settings['social_links'] = array();
+
+        $social_platforms = array('instagram', 'youtube', 'vimeo', 'linkedin', 'twitter', 'facebook', 'behance', 'dribbble');
+
+        foreach ($social_platforms as $platform) {
+            $url = isset($_POST['social_' . $platform]) ? trim($_POST['social_' . $platform]) : '';
+            if (!empty($url)) {
+                $settings['social_links'][$platform] = esc_url_raw($url);
+            }
+        }
+
+        update_option('sessionale_portfolio_settings', $settings);
+        echo '<div class="notice notice-success"><p>' . __('Social links saved!', 'sessionale-portfolio') . '</p></div>';
+    }
+
+    $settings = get_option('sessionale_portfolio_settings', array());
+    $social_links = isset($settings['social_links']) ? $settings['social_links'] : array();
+
+    $social_platforms = array(
+        'instagram' => 'Instagram',
+        'youtube' => 'YouTube',
+        'vimeo' => 'Vimeo',
+        'linkedin' => 'LinkedIn',
+        'twitter' => 'Twitter / X',
+        'facebook' => 'Facebook',
+        'behance' => 'Behance',
+        'dribbble' => 'Dribbble'
+    );
+    ?>
+    <div class="wrap">
+        <h1><?php _e('Social Links', 'sessionale-portfolio'); ?></h1>
+        <p><?php _e('These links are automatically detected during portfolio import. You can edit them here if needed.', 'sessionale-portfolio'); ?></p>
+
+        <form method="post">
+            <?php wp_nonce_field('sessionale_social_links', 'sessionale_social_nonce'); ?>
+
+            <table class="form-table">
+                <?php foreach ($social_platforms as $key => $label) :
+                    $value = isset($social_links[$key]) ? $social_links[$key] : '';
+                ?>
+                <tr>
+                    <th><label for="social_<?php echo $key; ?>"><?php echo $label; ?></label></th>
+                    <td><input type="url" name="social_<?php echo $key; ?>" id="social_<?php echo $key; ?>" class="regular-text" value="<?php echo esc_attr($value); ?>" placeholder="https://"></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+
+            <p class="submit">
+                <input type="submit" name="sessionale_social_submit" class="button button-primary" value="<?php _e('Save Social Links', 'sessionale-portfolio'); ?>">
+            </p>
+        </form>
+    </div>
+    <?php
+}

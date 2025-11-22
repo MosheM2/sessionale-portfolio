@@ -10,32 +10,19 @@
 <?php wp_body_open(); ?>
 
 <header class="site-header">
-    <div class="site-branding">
-        <?php
-        if (has_custom_logo()) {
-            the_custom_logo();
-        } else {
-            ?>
-            <h1 class="site-title">
-                <a href="<?php echo esc_url(home_url('/')); ?>" rel="home">
-                    <?php bloginfo('name'); ?>
-                </a>
-            </h1>
-            <?php
-            $description = get_bloginfo('description', 'display');
-            if ($description || is_customize_preview()) :
-                ?>
-                <p class="site-description"><?php echo $description; ?></p>
-            <?php endif;
-        }
-        ?>
-    </div>
-
     <nav class="main-navigation">
+        <button class="menu-toggle" aria-controls="primary-menu" aria-expanded="false">
+            <span class="burger-icon">
+                <span></span>
+                <span></span>
+                <span></span>
+            </span>
+        </button>
         <?php
         wp_nav_menu(array(
             'theme_location' => 'primary',
             'menu_class'     => 'primary-menu',
+            'menu_id'        => 'primary-menu',
             'container'      => false,
             'fallback_cb'    => false,
         ));
