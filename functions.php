@@ -192,6 +192,164 @@ function sessionale_admin_styles() {
                 font-size: 30px;
                 color: #2271b1;
             }
+
+            /* Modern Toast Notifications */
+            #sessionale-toast-container {
+                position: fixed;
+                top: 50px;
+                right: 20px;
+                z-index: 999999;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                max-width: 380px;
+                width: 100%;
+                pointer-events: none;
+            }
+
+            .sessionale-toast {
+                background: #fff;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+                padding: 16px 20px;
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                transform: translateX(120%);
+                opacity: 0;
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
+                pointer-events: auto;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .sessionale-toast.show {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            .sessionale-toast.hiding {
+                transform: translateX(120%);
+                opacity: 0;
+            }
+
+            .sessionale-toast-icon {
+                flex-shrink: 0;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+            }
+
+            .sessionale-toast.loading .sessionale-toast-icon {
+                background: #e8f4fd;
+                color: #2271b1;
+            }
+
+            .sessionale-toast.success .sessionale-toast-icon {
+                background: #d4edda;
+                color: #155724;
+            }
+
+            .sessionale-toast.error .sessionale-toast-icon {
+                background: #f8d7da;
+                color: #721c24;
+            }
+
+            .sessionale-toast-content {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .sessionale-toast-title {
+                font-weight: 600;
+                font-size: 14px;
+                color: #1d2327;
+                margin: 0 0 4px 0;
+            }
+
+            .sessionale-toast-message {
+                font-size: 13px;
+                color: #50575e;
+                margin: 0;
+                line-height: 1.4;
+            }
+
+            .sessionale-toast-close {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                background: none;
+                border: none;
+                color: #999;
+                cursor: pointer;
+                font-size: 18px;
+                line-height: 1;
+                padding: 4px;
+                opacity: 0.6;
+                transition: opacity 0.2s;
+            }
+
+            .sessionale-toast-close:hover {
+                opacity: 1;
+            }
+
+            .sessionale-toast-progress {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                height: 3px;
+                background: #2271b1;
+                border-radius: 0 0 8px 8px;
+                transition: width 0.3s ease;
+            }
+
+            .sessionale-toast.success .sessionale-toast-progress {
+                background: #28a745;
+            }
+
+            .sessionale-toast.error .sessionale-toast-progress {
+                background: #dc3545;
+            }
+
+            /* Spinner animation for loading state */
+            .sessionale-spinner {
+                width: 16px;
+                height: 16px;
+                border: 2px solid #e8f4fd;
+                border-top-color: #2271b1;
+                border-radius: 50%;
+                animation: sessionale-spin 0.8s linear infinite;
+            }
+
+            @keyframes sessionale-spin {
+                to { transform: rotate(360deg); }
+            }
+
+            /* Details list in toast */
+            .sessionale-toast-details {
+                margin: 8px 0 0 0;
+                padding: 0;
+                list-style: none;
+                font-size: 12px;
+                color: #50575e;
+            }
+
+            .sessionale-toast-details li {
+                padding: 2px 0;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .sessionale-toast-details li:before {
+                content: "✓";
+                color: #28a745;
+                font-weight: bold;
+            }
         </style>
         <?php
     }
@@ -335,17 +493,119 @@ function portfolio_migration_import_page() {
                         <?php _e('Delete All Projects', 'sessionale-portfolio'); ?>
                     </button>
                 </div>
-
-                <div id="import-progress" style="display: none; margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 4px;">
-                    <h3 style="margin-top: 0;"><?php _e('Import Progress', 'sessionale-portfolio'); ?></h3>
-                    <div class="import-status"></div>
-                </div>
             </div>
         </form>
     </div>
 
+    <!-- Modern Toast Notification Container -->
+    <div id="sessionale-toast-container"></div>
+
     <script>
     jQuery(document).ready(function($) {
+        // Toast notification system
+        var toastCounter = 0;
+
+        function showToast(type, title, message, details, autoClose) {
+            var toastId = 'toast-' + (++toastCounter);
+            var iconHtml = '';
+
+            if (type === 'loading') {
+                iconHtml = '<div class="sessionale-spinner"></div>';
+            } else if (type === 'success') {
+                iconHtml = '✓';
+            } else if (type === 'error') {
+                iconHtml = '✗';
+            }
+
+            var detailsHtml = '';
+            if (details && details.length > 0) {
+                detailsHtml = '<ul class="sessionale-toast-details">';
+                details.forEach(function(detail) {
+                    detailsHtml += '<li>' + detail + '</li>';
+                });
+                detailsHtml += '</ul>';
+            }
+
+            var toastHtml = `
+                <div id="${toastId}" class="sessionale-toast ${type}">
+                    <div class="sessionale-toast-icon">${iconHtml}</div>
+                    <div class="sessionale-toast-content">
+                        <p class="sessionale-toast-title">${title}</p>
+                        <p class="sessionale-toast-message">${message}</p>
+                        ${detailsHtml}
+                    </div>
+                    <button class="sessionale-toast-close" onclick="closeToast('${toastId}')">&times;</button>
+                    <div class="sessionale-toast-progress" style="width: 100%"></div>
+                </div>
+            `;
+
+            $('#sessionale-toast-container').append(toastHtml);
+
+            // Trigger animation
+            setTimeout(function() {
+                $('#' + toastId).addClass('show');
+            }, 10);
+
+            // Auto close with progress bar
+            if (autoClose !== false && type !== 'loading') {
+                var duration = type === 'success' ? 5000 : 8000;
+                var $progress = $('#' + toastId + ' .sessionale-toast-progress');
+
+                $progress.css('transition', 'width ' + duration + 'ms linear');
+                setTimeout(function() {
+                    $progress.css('width', '0%');
+                }, 50);
+
+                setTimeout(function() {
+                    closeToast(toastId);
+                }, duration);
+            }
+
+            return toastId;
+        }
+
+        window.closeToast = function(toastId) {
+            var $toast = $('#' + toastId);
+            $toast.addClass('hiding');
+            setTimeout(function() {
+                $toast.remove();
+            }, 400);
+        };
+
+        function updateToast(toastId, type, title, message, details) {
+            var $toast = $('#' + toastId);
+            if (!$toast.length) return;
+
+            $toast.removeClass('loading success error').addClass(type);
+
+            var iconHtml = type === 'success' ? '✓' : '✗';
+            $toast.find('.sessionale-toast-icon').html(iconHtml);
+            $toast.find('.sessionale-toast-title').text(title);
+            $toast.find('.sessionale-toast-message').text(message);
+
+            if (details && details.length > 0) {
+                var detailsHtml = '<ul class="sessionale-toast-details">';
+                details.forEach(function(detail) {
+                    detailsHtml += '<li>' + detail + '</li>';
+                });
+                detailsHtml += '</ul>';
+                $toast.find('.sessionale-toast-details').remove();
+                $toast.find('.sessionale-toast-content').append(detailsHtml);
+            }
+
+            // Start auto-close
+            var duration = type === 'success' ? 5000 : 8000;
+            var $progress = $toast.find('.sessionale-toast-progress');
+            $progress.css('transition', 'width ' + duration + 'ms linear');
+            setTimeout(function() {
+                $progress.css('width', '0%');
+            }, 50);
+
+            setTimeout(function() {
+                closeToast(toastId);
+            }, duration);
+        }
+
         // Add new portfolio source row
         $('.add-source').on('click', function() {
             var rowIndex = $('.portfolio-source-row').length;
@@ -377,9 +637,11 @@ function portfolio_migration_import_page() {
             var $form = $(this);
             var isImport = $form.find('button[name="save_and_import"]:focus').length > 0;
 
-            $('#import-progress').show();
-            $('.import-status').html('<p><?php _e('Saving settings...', 'sessionale-portfolio'); ?></p>');
             $form.find('button[type="submit"]').prop('disabled', true);
+
+            var loadingTitle = isImport ? '<?php _e('Importing Portfolio', 'sessionale-portfolio'); ?>' : '<?php _e('Saving Settings', 'sessionale-portfolio'); ?>';
+            var loadingMsg = isImport ? '<?php _e('Please wait while we import your projects...', 'sessionale-portfolio'); ?>' : '<?php _e('Saving your settings...', 'sessionale-portfolio'); ?>';
+            var toastId = showToast('loading', loadingTitle, loadingMsg, null, false);
 
             $.post(ajaxurl, {
                 action: 'sessionale_save_settings',
@@ -388,17 +650,18 @@ function portfolio_migration_import_page() {
                 doImport: isImport ? 1 : 0
             }, function(response) {
                 if (response.success) {
-                    var msg = '<p style="color: green;"><strong>✓</strong> ' + response.data.message + '</p>';
+                    var details = [];
                     if (response.data.imported) {
-                        msg += '<p><?php _e('Projects imported:', 'sessionale-portfolio'); ?> ' + response.data.imported + '</p>';
+                        details.push('<?php _e('Projects imported:', 'sessionale-portfolio'); ?> ' + response.data.imported);
                     }
                     if (response.data.contact_page) {
-                        msg += '<p><?php _e('Contact page created!', 'sessionale-portfolio'); ?></p>';
+                        details.push('<?php _e('Contact page created', 'sessionale-portfolio'); ?>');
                     }
                     if (response.data.about_page) {
-                        msg += '<p><?php _e('About page created!', 'sessionale-portfolio'); ?></p>';
+                        details.push('<?php _e('About page created', 'sessionale-portfolio'); ?>');
                     }
-                    $('.import-status').html(msg);
+
+                    updateToast(toastId, 'success', '<?php _e('Success!', 'sessionale-portfolio'); ?>', response.data.message, details);
 
                     if (isImport) {
                         setTimeout(function() { location.reload(); }, 3000);
@@ -406,11 +669,11 @@ function portfolio_migration_import_page() {
                         $form.find('button[type="submit"]').prop('disabled', false);
                     }
                 } else {
-                    $('.import-status').html('<p style="color: red;"><strong>✗</strong> ' + response.data.message + '</p>');
+                    updateToast(toastId, 'error', '<?php _e('Error', 'sessionale-portfolio'); ?>', response.data.message);
                     $form.find('button[type="submit"]').prop('disabled', false);
                 }
             }).fail(function() {
-                $('.import-status').html('<p style="color: red;"><?php _e('An error occurred. Please try again.', 'sessionale-portfolio'); ?></p>');
+                updateToast(toastId, 'error', '<?php _e('Error', 'sessionale-portfolio'); ?>', '<?php _e('An error occurred. Please try again.', 'sessionale-portfolio'); ?>');
                 $form.find('button[type="submit"]').prop('disabled', false);
             });
         });
@@ -421,19 +684,18 @@ function portfolio_migration_import_page() {
                 return;
             }
 
-            $('#import-progress').show();
-            $('.import-status').html('<p><?php _e('Deleting all portfolio projects...', 'sessionale-portfolio'); ?></p>');
             $(this).prop('disabled', true);
+            var toastId = showToast('loading', '<?php _e('Deleting Projects', 'sessionale-portfolio'); ?>', '<?php _e('Removing all portfolio projects...', 'sessionale-portfolio'); ?>', null, false);
 
             $.post(ajaxurl, {
                 action: 'portfolio_migration_delete_all',
                 nonce: '<?php echo wp_create_nonce('portfolio_migration_import'); ?>'
             }, function(response) {
                 if (response.success) {
-                    $('.import-status').html('<p style="color: green;"><strong>✓</strong> ' + response.data.message + '</p>');
+                    updateToast(toastId, 'success', '<?php _e('Deleted!', 'sessionale-portfolio'); ?>', response.data.message);
                     setTimeout(function() { location.reload(); }, 2000);
                 } else {
-                    $('.import-status').html('<p style="color: red;"><strong>✗</strong> ' + response.data.message + '</p>');
+                    updateToast(toastId, 'error', '<?php _e('Error', 'sessionale-portfolio'); ?>', response.data.message);
                     $('#delete-all-projects').prop('disabled', false);
                 }
             });
@@ -940,11 +1202,17 @@ function sessionale_import_about_page($url) {
     // Check if about page already exists
     $existing = get_page_by_path('about');
     if ($existing) {
-        return $existing->ID;
+        // Update existing page
+        $page_id = $existing->ID;
+    } else {
+        $page_id = null;
     }
 
     // Fetch the about page
-    $response = wp_remote_get($url, array('timeout' => 30));
+    $response = wp_remote_get($url, array(
+        'timeout' => 30,
+        'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    ));
     if (is_wp_error($response)) {
         return false;
     }
@@ -967,38 +1235,100 @@ function sessionale_import_about_page($url) {
     }
 
     // Extract content from text modules
-    $content = '';
+    $text_content = '';
     $text_modules = $xpath->query('//div[contains(@class, "project-module-text")]//div[contains(@class, "rich-text")]');
     foreach ($text_modules as $module) {
         $text = trim($module->textContent);
         if (!empty($text)) {
-            $content .= '<p>' . esc_html($text) . '</p>' . "\n\n";
+            $text_content .= '<p>' . esc_html($text) . '</p>' . "\n";
         }
     }
 
-    // Extract image if present
-    $images = $xpath->query('//div[contains(@class, "project-module-image")]//img');
-    foreach ($images as $img) {
-        $src = $img->getAttribute('data-src') ?: $img->getAttribute('src');
-        if (!empty($src) && strpos($src, 'myportfolio.com') !== false) {
-            // Download and attach image
-            require_once(ABSPATH . 'wp-admin/includes/media.php');
-            require_once(ABSPATH . 'wp-admin/includes/file.php');
-            require_once(ABSPATH . 'wp-admin/includes/image.php');
+    // Include media helper functions
+    require_once(ABSPATH . 'wp-admin/includes/media.php');
+    require_once(ABSPATH . 'wp-admin/includes/file.php');
+    require_once(ABSPATH . 'wp-admin/includes/image.php');
 
-            $tmp = download_url($src, 30);
-            if (!is_wp_error($tmp)) {
-                $file_array = array(
-                    'name' => basename(parse_url($src, PHP_URL_PATH)),
-                    'tmp_name' => $tmp
-                );
-                $attachment_id = media_handle_sideload($file_array, 0);
-                if (!is_wp_error($attachment_id)) {
-                    $img_url = wp_get_attachment_url($attachment_id);
-                    $content = '<figure class="wp-block-image size-full"><img src="' . esc_url($img_url) . '" alt=""/></figure>' . "\n\n" . $content;
+    // Extract ALL images from grid wrappers
+    $all_images = array();
+    $image_wrappers = $xpath->query('//div[contains(@class, "grid__image-wrapper")]//img | //div[contains(@class, "project-module-image")]//img');
+
+    foreach ($image_wrappers as $img) {
+        // Try different src attributes (srcset, data-src, src)
+        $srcset = $img->getAttribute('srcset');
+        $src = '';
+
+        if (!empty($srcset)) {
+            // Parse srcset and get the largest image (usually 1920w or 3840w)
+            preg_match_all('/([^\s,]+)\s+(\d+)w/', $srcset, $matches, PREG_SET_ORDER);
+            $best_width = 0;
+            foreach ($matches as $match) {
+                $width = intval($match[2]);
+                // Prefer 1920w or closest to it (not too large)
+                if ($width >= 1200 && $width <= 1920 && $width > $best_width) {
+                    $src = $match[1];
+                    $best_width = $width;
                 }
             }
-            break; // Only get first image
+            // Fallback to largest if no 1920w found
+            if (empty($src) && !empty($matches)) {
+                $largest = end($matches);
+                $src = $largest[1];
+            }
+        }
+
+        if (empty($src)) {
+            $src = $img->getAttribute('data-src') ?: $img->getAttribute('src');
+        }
+
+        // Skip placeholder images
+        if (empty($src) || strpos($src, 'data:image') === 0) {
+            continue;
+        }
+
+        // Download and attach image
+        $tmp = download_url($src, 30);
+        if (!is_wp_error($tmp)) {
+            $file_array = array(
+                'name' => basename(parse_url($src, PHP_URL_PATH)) ?: 'about-image-' . count($all_images) . '.jpg',
+                'tmp_name' => $tmp
+            );
+            $attachment_id = media_handle_sideload($file_array, 0);
+            if (!is_wp_error($attachment_id)) {
+                $all_images[] = wp_get_attachment_url($attachment_id);
+            }
+        }
+    }
+
+    // Build page content with proper structure
+    $content = '';
+
+    if (!empty($all_images) || !empty($text_content)) {
+        // Main section: first image + text side by side
+        $content .= '<div class="about-main-section">' . "\n";
+
+        if (!empty($all_images)) {
+            $first_image = array_shift($all_images);
+            $content .= '<div class="about-image">' . "\n";
+            $content .= '<img src="' . esc_url($first_image) . '" alt=""/>' . "\n";
+            $content .= '</div>' . "\n";
+        }
+
+        if (!empty($text_content)) {
+            $content .= '<div class="about-text">' . "\n";
+            $content .= $text_content;
+            $content .= '</div>' . "\n";
+        }
+
+        $content .= '</div>' . "\n\n";
+
+        // Additional images in grid
+        if (!empty($all_images)) {
+            $content .= '<div class="about-image-grid">' . "\n";
+            foreach ($all_images as $img_url) {
+                $content .= '<figure class="about-grid-item"><img src="' . esc_url($img_url) . '" alt=""/></figure>' . "\n";
+            }
+            $content .= '</div>' . "\n";
         }
     }
 
@@ -1006,13 +1336,20 @@ function sessionale_import_about_page($url) {
         return false;
     }
 
-    $page_id = wp_insert_post(array(
+    $page_data = array(
         'post_title' => $title,
         'post_name' => 'about',
         'post_content' => $content,
         'post_status' => 'publish',
         'post_type' => 'page'
-    ));
+    );
+
+    if ($page_id) {
+        $page_data['ID'] = $page_id;
+        wp_update_post($page_data);
+    } else {
+        $page_id = wp_insert_post($page_data);
+    }
 
     return $page_id;
 }
