@@ -37,18 +37,6 @@ if (empty($layout)) {
                         <?php if ($client) : ?>
                             <span class="project-client"><?php echo esc_html($client); ?></span>
                         <?php endif; ?>
-
-                        <?php if ($categories && !is_wp_error($categories)) : ?>
-                            <span class="project-categories">
-                                <?php
-                                $cat_names = array();
-                                foreach ($categories as $category) {
-                                    $cat_names[] = $category->name;
-                                }
-                                echo esc_html(implode(' / ', $cat_names));
-                                ?>
-                            </span>
-                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </header>

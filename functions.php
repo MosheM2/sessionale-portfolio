@@ -70,7 +70,7 @@ function portfolio_migration_register_portfolio_cpt() {
         'show_ui'            => true,
         'show_in_menu'       => true,
         'query_var'          => true,
-        'rewrite'            => array('slug' => 'project'),
+        'rewrite'            => array('slug' => '%portfolio_category%', 'with_front' => false),
         'capability_type'    => 'post',
         'has_archive'        => true,
         'hierarchical'       => false,
@@ -83,6 +83,100 @@ function portfolio_migration_register_portfolio_cpt() {
     register_post_type('portfolio', $args);
 }
 add_action('init', 'portfolio_migration_register_portfolio_cpt');
+
+/**
+ * Replace %portfolio_category% placeholder in portfolio URLs with actual category slug
+ */
+function portfolio_category_permalink($post_link, $post) {
+    if ($post->post_type !== 'portfolio') {
+        return $post_link;
+    }
+
+    // Get the portfolio category
+    $terms = get_the_terms($post->ID, 'portfolio_category');
+
+    if ($terms && !is_wp_error($terms)) {
+        // Use the first category
+        $category_slug = $terms[0]->slug;
+    } else {
+        // Fallback if no category assigned
+        $category_slug = 'project';
+    }
+
+    return str_replace('%portfolio_category%', $category_slug, $post_link);
+}
+add_filter('post_type_link', 'portfolio_category_permalink', 10, 2);
+
+/**
+ * Add rewrite rules for portfolio category URLs
+ * Uses a more specific pattern to avoid conflicts with regular pages
+ */
+function portfolio_category_rewrite_rules() {
+    // Get all portfolio categories
+    $terms = get_terms(array(
+        'taxonomy' => 'portfolio_category',
+        'hide_empty' => false,
+    ));
+
+    if (!is_wp_error($terms) && !empty($terms)) {
+        foreach ($terms as $term) {
+            // FIRST: Add rewrite rule for category PAGE (e.g., /photography/)
+            // This ensures the page is loaded, not the taxonomy archive
+            $page = get_page_by_path($term->slug);
+            if ($page) {
+                add_rewrite_rule(
+                    '^' . preg_quote($term->slug, '/') . '/?$',
+                    'index.php?page_id=' . $page->ID,
+                    'top'
+                );
+            }
+
+            // SECOND: Add rewrite rule for portfolio items: category-slug/post-name
+            add_rewrite_rule(
+                '^' . preg_quote($term->slug, '/') . '/([^/]+)/?$',
+                'index.php?portfolio=$matches[1]',
+                'top'
+            );
+        }
+    }
+
+    // Fallback rule for 'project' (uncategorized posts)
+    add_rewrite_rule(
+        '^project/([^/]+)/?$',
+        'index.php?portfolio=$matches[1]',
+        'top'
+    );
+}
+add_action('init', 'portfolio_category_rewrite_rules', 20);
+
+/**
+ * Flush rewrite rules when portfolio categories are created/updated/deleted
+ */
+function portfolio_flush_rules_on_term_change($term_id, $tt_id, $taxonomy) {
+    if ($taxonomy === 'portfolio_category') {
+        flush_rewrite_rules();
+    }
+}
+add_action('created_term', 'portfolio_flush_rules_on_term_change', 10, 3);
+add_action('edited_term', 'portfolio_flush_rules_on_term_change', 10, 3);
+add_action('delete_term', 'portfolio_flush_rules_on_term_change', 10, 3);
+
+/**
+ * Prevent portfolio rewrite rules from matching regular pages
+ */
+function portfolio_parse_request($query_vars) {
+    // If this looks like a portfolio request but matches a real page, let page win
+    if (isset($query_vars['portfolio'])) {
+        $page = get_page_by_path($query_vars['portfolio']);
+        if ($page) {
+            // This is actually a page, not a portfolio item
+            unset($query_vars['portfolio']);
+            $query_vars['pagename'] = $query_vars['portfolio'];
+        }
+    }
+    return $query_vars;
+}
+add_filter('request', 'portfolio_parse_request');
 
 /**
  * Register Portfolio Categories Taxonomy
@@ -960,30 +1054,11 @@ function sessionale_save_settings() {
                 );
             }
 
-            // Import from this source
-            $result = $importer->import_from_portfolio_url($source['url'], 'portfolio');
+            // Import from this source with category assigned during import
+            $result = $importer->import_from_portfolio_url($source['url'], 'portfolio', $category_id);
 
             if ($result['success']) {
                 $total_imported += $result['imported'];
-
-                // Assign category to imported posts (recent posts without category)
-                if ($category_id) {
-                    $recent_posts = get_posts(array(
-                        'post_type' => 'portfolio',
-                        'posts_per_page' => $result['imported'],
-                        'orderby' => 'date',
-                        'order' => 'DESC',
-                        'tax_query' => array(
-                            array(
-                                'taxonomy' => 'portfolio_category',
-                                'operator' => 'NOT EXISTS'
-                            )
-                        )
-                    ));
-                    foreach ($recent_posts as $post) {
-                        wp_set_object_terms($post->ID, (int)$category_id, 'portfolio_category');
-                    }
-                }
             }
         }
 
@@ -1119,17 +1194,24 @@ add_shortcode('sessionale_contact_info', 'sessionale_contact_info_shortcode');
  * Create Category Page
  */
 function sessionale_create_category_page($category_name, $category_slug) {
-    // Check if page already exists
-    $existing = get_page_by_path($category_slug);
-    if ($existing) {
-        return $existing->ID;
-    }
-
     // Create page with shortcode to display portfolio items from this category
     $page_content = '<!-- wp:shortcode -->' . "\n";
     $page_content .= '[sessionale_portfolio category="' . esc_attr($category_slug) . '"]' . "\n";
     $page_content .= '<!-- /wp:shortcode -->';
 
+    // Check if page already exists
+    $existing = get_page_by_path($category_slug);
+    if ($existing) {
+        // Update existing page to ensure correct shortcode/category filter
+        wp_update_post(array(
+            'ID' => $existing->ID,
+            'post_content' => $page_content
+        ));
+        update_post_meta($existing->ID, '_portfolio_category', $category_slug);
+        return $existing->ID;
+    }
+
+    // Create new page
     $page_id = wp_insert_post(array(
         'post_title' => $category_name,
         'post_name' => $category_slug,

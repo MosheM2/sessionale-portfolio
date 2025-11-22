@@ -5,6 +5,9 @@
  * @package Portfolio_Migration
  */
 
+// Debug: Log which template is being used
+error_log('TEMPLATE DEBUG: archive-portfolio.php loaded - is_tax: ' . (is_tax('portfolio_category') ? 'yes' : 'no'));
+
 get_header(); ?>
 
 <main class="site-content">

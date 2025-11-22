@@ -431,7 +431,7 @@ img {
 
 /* Project Gallery / Content Area */
 .project-gallery {
-    max-width: 1000px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 0 60px;
 }
@@ -594,7 +594,7 @@ img {
 /* Auto Layout - Smart grid based on aspect ratio */
 .layout-auto .project-content {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 20px;
 }
 
@@ -657,10 +657,10 @@ img {
     width: 100%;
 }
 
-/* Grid Layout - Always 2 columns */
+/* Grid Layout - Always 3 columns */
 .layout-grid .project-content {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 20px;
 }
 
@@ -691,6 +691,14 @@ img {
     height: 100%;
     object-fit: contain;
     background: #000;
+}
+
+/* Responsive: 2 columns on tablets */
+@media (max-width: 1024px) {
+    .layout-auto .project-content,
+    .layout-grid .project-content {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 
 /* Responsive: Stack to single column on mobile */

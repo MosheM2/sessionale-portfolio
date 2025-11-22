@@ -5,6 +5,9 @@
  * @package Portfolio_Migration
  */
 
+// Debug: Log which template is being used
+error_log('TEMPLATE DEBUG: page.php loaded for: ' . get_the_title() . ' (ID: ' . get_the_ID() . ')');
+
 get_header(); ?>
 
 <main class="site-content">

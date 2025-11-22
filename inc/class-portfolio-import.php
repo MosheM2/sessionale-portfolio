@@ -841,7 +841,7 @@ class Portfolio_Import {
      * @param string $post_type The post type to create
      * @param string|null $cover_image_url The cover image URL from the main page (for featured image)
      */
-    public function import_portfolio_project($portfolio_url, $post_type = 'portfolio', $cover_image_url = null) {
+    public function import_portfolio_project($portfolio_url, $post_type = 'portfolio', $cover_image_url = null, $category_id = null) {
         // Reset time limit for each project import
         @set_time_limit(600);
 
@@ -902,10 +902,17 @@ class Portfolio_Import {
             'posts_per_page' => 1,
             'post_status' => 'any'
         ]);
-        
+
         if ($existing_query->have_posts()) {
             $existing = $existing_query->posts[0];
             $this->log("Post '{$title}' already exists (ID: {$existing->ID})");
+
+            // Update category for existing post if provided (ensures correct category on re-import)
+            if ($category_id) {
+                wp_set_object_terms($existing->ID, (int)$category_id, 'portfolio_category');
+                $this->log("Updated category for existing post {$existing->ID} to category ID {$category_id}");
+            }
+
             return $existing->ID;
         }
         
@@ -920,6 +927,11 @@ class Portfolio_Import {
         if (is_wp_error($post_id)) {
             $this->log("Failed to create post: " . $post_id->get_error_message(), 'error');
             return false;
+        }
+
+        // Assign category if provided
+        if ($category_id) {
+            wp_set_object_terms($post_id, (int)$category_id, 'portfolio_category');
         }
         
         // Save source URL
@@ -1199,7 +1211,7 @@ class Portfolio_Import {
     /**
      * Import from main portfolio URL
      */
-    public function import_from_portfolio_url($portfolio_url, $post_type = 'portfolio') {
+    public function import_from_portfolio_url($portfolio_url, $post_type = 'portfolio', $category_id = null) {
         // Fetch the Adobe Portfolio page
         $response = wp_remote_get($portfolio_url, ['timeout' => 30]);
 
@@ -1226,8 +1238,8 @@ class Portfolio_Import {
         $total = count($projects);
 
         foreach ($projects as $project) {
-            // Pass both the URL and cover image to the import function
-            $post_id = $this->import_portfolio_project($project['url'], $post_type, $project['cover_image']);
+            // Pass URL, cover image, and category to the import function
+            $post_id = $this->import_portfolio_project($project['url'], $post_type, $project['cover_image'], $category_id);
             if ($post_id) {
                 $imported_count++;
             }
