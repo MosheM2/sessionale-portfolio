@@ -357,6 +357,24 @@ img {
     grid-column: 1 / -1;
 }
 
+/* Ensure landscape videos are full width and centered */
+.layout-auto .project-content figure.wp-block-video.media-landscape,
+.layout-auto .project-content figure.wp-block-image.media-landscape {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+}
+
+/* When ALL content is landscape, switch to single column */
+.layout-auto .project-content.all-landscape {
+    grid-template-columns: 1fr;
+}
+
+.layout-auto .project-content.all-landscape .media-landscape {
+    grid-column: auto;
+    width: 100%;
+}
+
 /* Portrait items stay in grid */
 .layout-auto .project-content .media-portrait {
     grid-column: auto;

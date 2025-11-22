@@ -55,21 +55,35 @@
             if ($video.length) {
                 var video = $video[0];
 
-                // Check if video metadata is loaded
-                if (video.videoWidth && video.videoHeight) {
-                    applyAspectClass($figure, video.videoWidth, video.videoHeight);
-                } else {
+                // Function to apply class once we have dimensions
+                var applyVideoClass = function() {
+                    if (video.videoWidth && video.videoHeight) {
+                        applyAspectClass($figure, video.videoWidth, video.videoHeight);
+                        return true;
+                    }
+                    return false;
+                };
+
+                // Try immediately
+                if (!applyVideoClass()) {
+                    // Listen for metadata load
                     $video.on('loadedmetadata', function() {
                         applyAspectClass($figure, this.videoWidth, this.videoHeight);
                     });
 
-                    // Also try after a short delay in case metadata is already loaded
-                    setTimeout(function() {
-                        if (video.videoWidth && video.videoHeight) {
-                            applyAspectClass($figure, video.videoWidth, video.videoHeight);
-                        }
-                    }, 500);
+                    // Also try with delays as fallback
+                    setTimeout(applyVideoClass, 500);
+                    setTimeout(applyVideoClass, 1000);
+                    setTimeout(applyVideoClass, 2000);
                 }
+
+                // Default to landscape for 16:9 videos if detection fails
+                // Most professional videos are 16:9 landscape
+                setTimeout(function() {
+                    if (!$figure.hasClass('media-portrait') && !$figure.hasClass('media-landscape')) {
+                        $figure.addClass('media-landscape');
+                    }
+                }, 3000);
             }
         });
 
@@ -142,14 +156,44 @@
         $('.main-navigation').toggleClass('active');
     });
 
+    /**
+     * Check if all media is landscape and switch to single column if so
+     */
+    function optimizeGridLayout() {
+        var $article = $('article.single-portfolio');
+        var layout = $article.data('layout');
+
+        if (layout !== 'auto') {
+            return;
+        }
+
+        var $content = $article.find('.project-content');
+        var $mediaItems = $content.find('figure.wp-block-image, figure.wp-block-video, .wp-block-embed');
+
+        // Count portrait vs landscape
+        var portraitCount = $content.find('.media-portrait').length;
+        var landscapeCount = $content.find('.media-landscape').length;
+
+        // If no portrait items, switch to single column layout
+        if (portraitCount === 0 && landscapeCount > 0) {
+            $content.addClass('all-landscape');
+        } else {
+            $content.removeClass('all-landscape');
+        }
+    }
+
     // Initialize aspect ratio detection on document ready
     $(document).ready(function() {
         detectAspectRatios();
+        // Check grid optimization after a delay to allow classes to be applied
+        setTimeout(optimizeGridLayout, 100);
     });
 
     // Also run on window load to catch any late-loading media
     $(window).on('load', function() {
         detectAspectRatios();
+        setTimeout(optimizeGridLayout, 500);
+        setTimeout(optimizeGridLayout, 2000);
     });
 
 })(jQuery);
