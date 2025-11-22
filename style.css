@@ -709,18 +709,20 @@ img {
     display: flex;
     gap: 20px;
     width: 100%;
-    align-items: flex-start;
+    align-items: stretch;
 }
 
 .gallery-row figure {
     margin: 0;
+    overflow: hidden;
 }
 
 .gallery-row figure img {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: block;
     border-radius: 2px;
+    object-fit: cover;
 }
 
 /* Compact row - 4 items (L+P+L+P pattern) with equal widths */

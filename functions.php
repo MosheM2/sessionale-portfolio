@@ -90,7 +90,7 @@ function portfolio_migration_register_portfolio_cpt() {
 add_action('init', 'portfolio_migration_register_portfolio_cpt');
 
 /**
- * Replace %portfolio_category% placeholder in portfolio URLs with actual category slug
+ * Generate custom permalinks for portfolio posts: /category-slug/post-slug/
  */
 function portfolio_category_permalink($post_link, $post) {
     if ($post->post_type !== 'portfolio') {
@@ -108,7 +108,8 @@ function portfolio_category_permalink($post_link, $post) {
         $category_slug = 'project';
     }
 
-    return str_replace('%portfolio_category%', $category_slug, $post_link);
+    // Build the custom permalink: /category-slug/post-slug/
+    return home_url('/' . $category_slug . '/' . $post->post_name . '/');
 }
 add_filter('post_type_link', 'portfolio_category_permalink', 10, 2);
 

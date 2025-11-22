@@ -159,13 +159,21 @@
             item.element.style.margin = item.isPortrait ? '0 auto' : '0';
             rowDiv.appendChild(item.element);
         } else {
-            const totalRatio = row.reduce((sum, item) => sum + item.ratio, 0);
+            // Multi-item row - use aspect ratio for flex grow to ensure equal heights
+            rowDiv.style.alignItems = 'stretch';
 
             row.forEach(item => {
-                const flexBasis = (item.ratio / totalRatio) * 100;
-                item.element.style.flex = `0 0 calc(${flexBasis}% - ${(row.length - 1) * 20 / row.length}px)`;
-                item.element.style.maxWidth = `calc(${flexBasis}% - ${(row.length - 1) * 20 / row.length}px)`;
+                // Use aspect ratio as flex-grow so images have equal height
+                item.element.style.flex = `${item.ratio} 0 0`;
+                item.element.style.minWidth = '0';
                 item.element.style.margin = '0';
+                item.element.style.overflow = 'hidden';
+                const img = item.element.querySelector('img');
+                if (img) {
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'cover';
+                }
                 rowDiv.appendChild(item.element);
             });
         }
