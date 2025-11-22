@@ -603,3 +603,148 @@ img {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* ==========================================================================
+   Contact Form Styles
+   ========================================================================== */
+
+.sessionale-contact-form {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.sessionale-contact-form .form-group {
+    margin-bottom: 25px;
+}
+
+.sessionale-contact-form label {
+    display: block;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.sessionale-contact-form input[type="text"],
+.sessionale-contact-form input[type="email"],
+.sessionale-contact-form textarea {
+    width: 100%;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 16px;
+    font-family: inherit;
+    transition: border-color 0.3s ease;
+}
+
+.sessionale-contact-form input[type="text"]:focus,
+.sessionale-contact-form input[type="email"]:focus,
+.sessionale-contact-form textarea:focus {
+    outline: none;
+    border-color: #333;
+}
+
+.sessionale-contact-form textarea {
+    resize: vertical;
+    min-height: 150px;
+}
+
+.sessionale-contact-form .submit-button {
+    background: #1a1a1a;
+    color: #fff;
+    border: none;
+    padding: 15px 40px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.sessionale-contact-form .submit-button:hover {
+    background: #333;
+}
+
+.sessionale-contact-form .contact-success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    padding: 20px;
+    border-radius: 4px;
+    text-align: center;
+}
+
+/* ==========================================================================
+   Social Links
+   ========================================================================== */
+
+.social-links {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.social-links a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #f5f5f5;
+    color: #333;
+    transition: all 0.3s ease;
+}
+
+.social-links a:hover {
+    background: #333;
+    color: #fff;
+    opacity: 1;
+}
+
+.social-links svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
+/* ==========================================================================
+   Page Styles
+   ========================================================================== */
+
+.page .site-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 60px 40px;
+}
+
+.page h1 {
+    font-size: 36px;
+    font-weight: 300;
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.page h2 {
+    font-size: 24px;
+    font-weight: 400;
+    margin-bottom: 20px;
+}
+
+.page p {
+    margin-bottom: 20px;
+    line-height: 1.8;
+}
+
+@media (max-width: 768px) {
+    .page .site-content {
+        padding: 40px 20px;
+    }
+
+    .page h1 {
+        font-size: 28px;
+    }
+}
