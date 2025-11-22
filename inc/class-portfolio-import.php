@@ -221,6 +221,28 @@ class Portfolio_Import {
 
         $this->log("Attempting to download Adobe video from: {$embed_url}");
 
+        // Check if we already have this video
+        global $wpdb;
+        $existing_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM {$wpdb->postmeta}
+            WHERE meta_key = '_video_source_url'
+            AND meta_value = %s
+            LIMIT 1",
+            $embed_url
+        ));
+
+        if ($existing_id) {
+            // Verify the attachment still exists and has a valid file
+            $attachment = get_post($existing_id);
+            if ($attachment && $attachment->post_type === 'attachment') {
+                $file_path = get_attached_file($existing_id);
+                if ($file_path && file_exists($file_path)) {
+                    $this->log("Video already exists (ID: {$existing_id}), reusing");
+                    return $existing_id;
+                }
+            }
+        }
+
         // Fetch the embed page to extract the MP4 URL
         $response = wp_remote_get($embed_url, [
             'timeout' => 30,
@@ -311,6 +333,9 @@ class Portfolio_Import {
             $this->log("Failed to sideload video: " . $attachment_id->get_error_message(), 'error');
             return false;
         }
+
+        // Save source URL for future duplicate detection
+        update_post_meta($attachment_id, '_video_source_url', $embed_url);
 
         $this->log("Successfully uploaded video with attachment ID: {$attachment_id}");
         return $attachment_id;
@@ -721,6 +746,17 @@ class Portfolio_Import {
             $text = trim($desc->textContent);
             if (!empty($text)) {
                 $this->log("Found description text: " . substr($text, 0, 50) . "...");
+                return $text;
+            }
+        }
+
+        // Look for text modules (rich-text content blocks)
+        // These contain credits/descriptions in many portfolio pages
+        $text_modules = $xpath->query('//div[contains(@class, "project-module-text")]//div[contains(@class, "rich-text")]');
+        foreach ($text_modules as $module) {
+            $text = trim($module->textContent);
+            if (!empty($text)) {
+                $this->log("Found text module: " . substr($text, 0, 50) . "...");
                 return $text;
             }
         }
