@@ -51,7 +51,60 @@ $social_icons = array(
     </div>
 </footer>
 
+<!-- Dark Mode Toggle Button -->
+<button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+    <span class="theme-toggle-icon">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+    </span>
+    <span class="theme-toggle-text"><?php _e('Dark Mode', 'sessionale-portfolio'); ?></span>
+</button>
+
 <script>
+// Dark Mode Toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const themeToggle = document.getElementById('theme-toggle');
+    const toggleText = themeToggle.querySelector('.theme-toggle-text');
+
+    function updateToggleText() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        toggleText.textContent = currentTheme === 'dark' ? '<?php _e('Light Mode', 'sessionale-portfolio'); ?>' : '<?php _e('Dark Mode', 'sessionale-portfolio'); ?>';
+    }
+
+    themeToggle.addEventListener('click', function() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('sessionale-theme', newTheme);
+        updateToggleText();
+    });
+
+    // Set initial text
+    updateToggleText();
+
+    // Listen for system preference changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (!localStorage.getItem('sessionale-theme')) {
+            const newTheme = e.matches ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            updateToggleText();
+        }
+    });
+});
+
 // Mobile Menu Toggle
 document.addEventListener('DOMContentLoaded', function() {
     const menuToggle = document.querySelector('.menu-toggle');

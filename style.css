@@ -14,6 +14,61 @@ Text Domain: sessionale-portfolio
 Tags: portfolio, photography, creative, grid-layout, one-column, two-columns, custom-menu, featured-images, theme-options, translation-ready
 */
 
+/* ==========================================================================
+   CSS Custom Properties (Light/Dark Theme)
+   ========================================================================== */
+
+:root {
+    /* Light Theme (Default) */
+    --color-bg: #ffffff;
+    --color-bg-secondary: #fafafa;
+    --color-bg-tertiary: #f5f5f5;
+    --color-text: #333333;
+    --color-text-secondary: #666666;
+    --color-text-muted: #999999;
+    --color-border: #e0e0e0;
+    --color-border-light: #f0f0f0;
+    --color-link: #333333;
+    --color-link-hover: #000000;
+    --color-accent: #2271b1;
+    --color-success: #28a745;
+    --color-error: #dc3545;
+    --color-overlay: rgba(255, 255, 255, 0.98);
+    --color-shadow: rgba(0, 0, 0, 0.1);
+    --color-shadow-strong: rgba(0, 0, 0, 0.15);
+    --color-input-bg: #fafafa;
+    --color-button-bg: #1a1a1a;
+    --color-button-text: #ffffff;
+    --color-button-hover: #333333;
+
+    /* Transitions */
+    --theme-transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+    --color-bg: #121212;
+    --color-bg-secondary: #1e1e1e;
+    --color-bg-tertiary: #2a2a2a;
+    --color-text: #e4e4e4;
+    --color-text-secondary: #b0b0b0;
+    --color-text-muted: #808080;
+    --color-border: #3a3a3a;
+    --color-border-light: #2a2a2a;
+    --color-link: #e4e4e4;
+    --color-link-hover: #ffffff;
+    --color-accent: #5fa8d3;
+    --color-success: #4caf50;
+    --color-error: #f44336;
+    --color-overlay: rgba(18, 18, 18, 0.98);
+    --color-shadow: rgba(0, 0, 0, 0.3);
+    --color-shadow-strong: rgba(0, 0, 0, 0.5);
+    --color-input-bg: #2a2a2a;
+    --color-button-bg: #e4e4e4;
+    --color-button-text: #121212;
+    --color-button-hover: #ffffff;
+}
+
 /* CSS Reset & Base Styles */
 * {
     margin: 0;
@@ -25,8 +80,9 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     font-size: 16px;
     line-height: 1.6;
-    color: #333;
-    background-color: #fff;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    transition: var(--theme-transition);
 }
 
 body.menu-open {
@@ -55,13 +111,14 @@ body.menu-open {
 }
 
 a {
-    color: #333;
+    color: var(--color-link);
     text-decoration: none;
-    transition: opacity 0.3s ease;
+    transition: color 0.3s ease, opacity 0.3s ease;
 }
 
 a:hover {
-    opacity: 0.7;
+    color: var(--color-link-hover);
+    opacity: 0.8;
 }
 
 img {
@@ -74,7 +131,9 @@ img {
 .site-header {
     padding: 10px 20px;
     text-align: center;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-bg);
+    transition: var(--theme-transition);
 }
 
 /* Navigation */
@@ -120,7 +179,7 @@ img {
     display: block;
     width: 100%;
     height: 2px;
-    background-color: #333;
+    background-color: var(--color-text);
     transition: all 0.3s ease;
 }
 
@@ -155,13 +214,14 @@ img {
         bottom: 0;
         width: 100vw;
         height: 100vh;
-        background: #fff;
+        background: var(--color-overlay);
         flex-direction: column;
         justify-content: center;
         align-items: center;
         gap: 0;
         padding: 0;
         z-index: 1000;
+        transition: var(--theme-transition);
     }
 
     .main-navigation .primary-menu.is-open {
@@ -249,7 +309,7 @@ img {
 .portfolio-item {
     position: relative;
     overflow: hidden;
-    background-color: #f5f5f5;
+    background-color: var(--color-bg-tertiary);
     transition: transform 0.3s ease;
 }
 
@@ -267,7 +327,7 @@ img {
     width: 100%;
     aspect-ratio: 16 / 9;
     overflow: hidden;
-    background-color: #e0e0e0;
+    background-color: var(--color-border);
 }
 
 .portfolio-thumbnail img {
@@ -310,12 +370,12 @@ img {
 
 .portfolio-item-year {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-secondary);
 }
 
 .portfolio-item-category {
     font-size: 12px;
-    color: #999;
+    color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-top: 5px;
@@ -324,7 +384,7 @@ img {
 /* Active menu item styling */
 .main-navigation .current-menu-item > a,
 .main-navigation .current_page_item > a {
-    color: #000;
+    color: var(--color-link-hover);
     font-weight: 600;
 }
 
@@ -351,12 +411,12 @@ img {
     font-weight: 300;
     letter-spacing: -0.5px;
     margin-bottom: 15px;
-    color: #1a1a1a;
+    color: var(--color-text);
 }
 
 .project-meta {
     font-size: 13px;
-    color: #666;
+    color: var(--color-text-secondary);
     text-transform: uppercase;
     letter-spacing: 1.5px;
     display: flex;
@@ -387,15 +447,16 @@ img {
     max-width: 700px;
     margin: 0 auto 40px;
     padding: 30px 40px;
-    background: #f8f8f8;
+    background: var(--color-bg-secondary);
     border-radius: 4px;
     text-align: center;
+    transition: var(--theme-transition);
 }
 
 .project-content .portfolio-credits p {
     font-size: 14px;
     line-height: 1.8;
-    color: #555;
+    color: var(--color-text-secondary);
     margin-bottom: 5px;
 }
 
@@ -451,8 +512,8 @@ img {
 }
 
 .project-content .wp-block-button__link {
-    background: #1a1a1a;
-    color: #fff;
+    background: var(--color-button-bg);
+    color: var(--color-button-text);
     padding: 14px 32px;
     font-size: 14px;
     text-transform: uppercase;
@@ -462,7 +523,7 @@ img {
 }
 
 .project-content .wp-block-button__link:hover {
-    background: #333;
+    background: var(--color-button-hover);
     opacity: 1;
 }
 
@@ -471,7 +532,7 @@ img {
     max-width: 1000px;
     margin: 80px auto 0;
     padding: 40px 60px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--color-border);
 }
 
 .project-navigation .nav-links {
@@ -500,26 +561,26 @@ img {
     font-size: 13px;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: #666;
+    color: var(--color-text-secondary);
     padding: 10px 0;
     transition: color 0.3s ease;
 }
 
 .project-navigation .nav-link:hover {
-    color: #1a1a1a;
+    color: var(--color-text);
     opacity: 1;
 }
 
 .project-navigation .nav-link-home {
-    background: #1a1a1a;
-    color: #fff;
+    background: var(--color-button-bg);
+    color: var(--color-button-text);
     padding: 12px 24px;
     border-radius: 3px;
 }
 
 .project-navigation .nav-link-home:hover {
-    background: #333;
-    color: #fff;
+    background: var(--color-button-hover);
+    color: var(--color-button-text);
 }
 
 .project-navigation .nav-arrow {
@@ -649,13 +710,16 @@ img {
 .site-footer {
     padding: 40px 20px;
     text-align: center;
-    border-top: 1px solid #e0e0e0;
+    border-top: 1px solid var(--color-border);
+    background-color: var(--color-bg);
+    transition: var(--theme-transition);
     margin-top: 80px;
 }
 
 .footer-text {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-secondary);
+    margin-top: 20px;
 }
 
 /* Import Notice */
@@ -805,7 +869,7 @@ img {
     font-weight: 500;
     letter-spacing: 1px;
     margin-bottom: 8px;
-    color: #333;
+    color: var(--color-text);
 }
 
 .sessionale-contact-form input[type="text"],
@@ -813,21 +877,28 @@ img {
 .sessionale-contact-form textarea {
     width: 100%;
     padding: 18px 20px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--color-border);
     border-radius: 4px;
     font-size: 16px;
     font-family: inherit;
-    background: #fafafa;
-    transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+    background: var(--color-input-bg);
+    color: var(--color-text);
+    transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
 }
 
 .sessionale-contact-form input[type="text"]:focus,
 .sessionale-contact-form input[type="email"]:focus,
 .sessionale-contact-form textarea:focus {
     outline: none;
-    border-color: #333;
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+    border-color: var(--color-text);
+    background: var(--color-bg);
+    box-shadow: 0 0 0 3px var(--color-shadow);
+}
+
+.sessionale-contact-form input[type="text"]::placeholder,
+.sessionale-contact-form input[type="email"]::placeholder,
+.sessionale-contact-form textarea::placeholder {
+    color: var(--color-text-muted);
 }
 
 .sessionale-contact-form textarea {
@@ -836,8 +907,8 @@ img {
 }
 
 .sessionale-contact-form .submit-button {
-    background: #1a1a1a;
-    color: #fff;
+    background: var(--color-button-bg);
+    color: var(--color-button-text);
     border: none;
     padding: 18px 50px;
     font-size: 14px;
@@ -850,7 +921,7 @@ img {
 }
 
 .sessionale-contact-form .submit-button:hover {
-    background: #333;
+    background: var(--color-button-hover);
     transform: translateY(-1px);
 }
 
@@ -863,9 +934,9 @@ img {
 }
 
 .sessionale-contact-form .contact-success {
-    background: #d4edda;
-    border: 1px solid #c3e6cb;
-    color: #155724;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-success);
+    color: var(--color-success);
     padding: 20px;
     border-radius: 4px;
     text-align: center;
@@ -943,7 +1014,7 @@ img {
 }
 
 .contact-info a {
-    color: #333;
+    color: var(--color-text);
     text-decoration: none;
     transition: opacity 0.3s ease;
 }
@@ -981,14 +1052,14 @@ img {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: #f5f5f5;
-    color: #333;
+    background: var(--color-bg-tertiary);
+    color: var(--color-text);
     transition: all 0.3s ease;
 }
 
 .social-links a:hover {
-    background: #333;
-    color: #fff;
+    background: var(--color-text);
+    color: var(--color-bg);
     opacity: 1;
 }
 
@@ -1008,6 +1079,15 @@ img {
     padding: 60px 40px;
 }
 
+.page h1,
+.page h2,
+.page h3,
+.page h4,
+.page h5,
+.page h6 {
+    color: var(--color-text);
+}
+
 .page h1 {
     font-size: 36px;
     font-weight: 300;
@@ -1024,6 +1104,24 @@ img {
 .page p {
     margin-bottom: 20px;
     line-height: 1.8;
+    color: var(--color-text);
+}
+
+/* Entry content - ensure all text uses theme colors */
+.entry-content,
+.entry-content p,
+.entry-content li,
+.entry-content span,
+.entry-content div {
+    color: var(--color-text);
+}
+
+.entry-content a {
+    color: var(--color-link);
+}
+
+.entry-content a:hover {
+    color: var(--color-link-hover);
 }
 
 @media (max-width: 768px) {
@@ -1076,7 +1174,7 @@ img {
     font-size: 16px;
     line-height: 1.8;
     margin-bottom: 15px;
-    color: #333;
+    color: var(--color-text);
 }
 
 .about-text p:last-child {
@@ -1143,4 +1241,97 @@ img {
         grid-template-columns: repeat(2, 1fr);
         gap: 10px;
     }
+}
+
+/* ==========================================================================
+   Dark Mode Toggle
+   ========================================================================== */
+
+.theme-toggle {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 9999;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 50px;
+    padding: 12px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+    box-shadow: 0 4px 15px var(--color-shadow);
+    transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px var(--color-shadow-strong);
+}
+
+.theme-toggle-icon {
+    width: 20px;
+    height: 20px;
+    position: relative;
+}
+
+.theme-toggle-icon svg {
+    width: 20px;
+    height: 20px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    fill: currentColor;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.theme-toggle .icon-sun {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+}
+
+.theme-toggle .icon-moon {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+}
+
+[data-theme="dark"] .theme-toggle .icon-sun {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+}
+
+[data-theme="dark"] .theme-toggle .icon-moon {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.5);
+}
+
+.theme-toggle-text {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .theme-toggle-text {
+        display: inline;
+    }
+}
+
+/* Mobile positioning */
+@media (max-width: 767px) {
+    .theme-toggle {
+        bottom: 20px;
+        right: 20px;
+        padding: 10px 12px;
+    }
+}
+
+/* Prevent FOUC (Flash of Unstyled Content) */
+html:not([data-theme]) {
+    visibility: hidden;
+}
+
+html[data-theme] {
+    visibility: visible;
 }

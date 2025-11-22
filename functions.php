@@ -152,6 +152,82 @@ function sessionale_admin_menu() {
 add_action('admin_menu', 'sessionale_admin_menu');
 
 /**
+ * Remove Posts and Comments from Admin Menu
+ * This theme is portfolio-focused and doesn't need blog posts or comments
+ */
+function sessionale_remove_admin_menus() {
+    remove_menu_page('edit.php');           // Posts (Beiträge)
+    remove_menu_page('edit-comments.php');  // Comments (Kommentare)
+}
+add_action('admin_menu', 'sessionale_remove_admin_menus', 999);
+
+/**
+ * Disable Comments Functionality Completely
+ */
+function sessionale_disable_comments() {
+    // Close comments on the front-end
+    add_filter('comments_open', '__return_false', 20, 2);
+    add_filter('pings_open', '__return_false', 20, 2);
+
+    // Hide existing comments
+    add_filter('comments_array', '__return_empty_array', 10, 2);
+
+    // Remove comments from admin bar
+    add_action('wp_before_admin_bar_render', function() {
+        global $wp_admin_bar;
+        $wp_admin_bar->remove_menu('comments');
+    });
+}
+add_action('init', 'sessionale_disable_comments');
+
+/**
+ * Remove Comments from Post Types
+ */
+function sessionale_remove_comment_support() {
+    // Remove comment support from posts
+    remove_post_type_support('post', 'comments');
+    remove_post_type_support('post', 'trackbacks');
+
+    // Remove comment support from pages
+    remove_post_type_support('page', 'comments');
+    remove_post_type_support('page', 'trackbacks');
+
+    // Remove comment support from portfolio
+    remove_post_type_support('portfolio', 'comments');
+    remove_post_type_support('portfolio', 'trackbacks');
+}
+add_action('init', 'sessionale_remove_comment_support', 100);
+
+/**
+ * Redirect any direct access to Posts or Comments pages
+ */
+function sessionale_redirect_disabled_pages() {
+    global $pagenow;
+
+    $disabled_pages = array(
+        'edit.php',          // Posts list
+        'post-new.php',      // New post (without post_type parameter)
+        'edit-comments.php', // Comments
+    );
+
+    // Check if we're on a disabled page and not adding a custom post type
+    if (in_array($pagenow, $disabled_pages)) {
+        // Allow post-new.php if it's for a custom post type
+        if ($pagenow === 'post-new.php' && isset($_GET['post_type'])) {
+            return;
+        }
+        // Allow edit.php if it's for a custom post type
+        if ($pagenow === 'edit.php' && isset($_GET['post_type'])) {
+            return;
+        }
+
+        wp_redirect(admin_url('admin.php?page=sessionale-dashboard'));
+        exit;
+    }
+}
+add_action('admin_init', 'sessionale_redirect_disabled_pages');
+
+/**
  * Add Admin Menu Styling
  */
 function sessionale_admin_styles() {
