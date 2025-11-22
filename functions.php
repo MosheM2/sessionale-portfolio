@@ -1278,11 +1278,10 @@ function sessionale_import_about_page($url) {
     // Check if about page already exists
     $existing = get_page_by_path('about');
     if ($existing) {
-        // Update existing page
-        $page_id = $existing->ID;
-    } else {
-        $page_id = null;
+        // Delete existing page to do a fresh import
+        wp_delete_post($existing->ID, true);
     }
+    $page_id = null;
 
     // Fetch the about page
     $response = wp_remote_get($url, array(
@@ -1327,54 +1326,152 @@ function sessionale_import_about_page($url) {
 
     // Extract ALL images from grid wrappers
     $all_images = array();
-    $image_wrappers = $xpath->query('//div[contains(@class, "grid__image-wrapper")]//img | //div[contains(@class, "project-module-image")]//img');
+    $processed_urls = array(); // Track processed URLs to avoid duplicates
 
-    foreach ($image_wrappers as $img) {
-        // Try different src attributes (srcset, data-src, src)
-        $srcset = $img->getAttribute('srcset');
+    // Try multiple XPath queries to find images
+    // Adobe Portfolio uses data-srcset for lazy loading
+    $queries_to_try = array(
+        '//img[@data-srcset]',  // Best: images with lazy-load srcset
+        '//img[@data-src]',     // Images with lazy-load src
+        '//div[contains(@class, "grid__image-wrapper")]//img',
+        '//img[contains(@data-srcset, "myportfolio.com")]',
+        '//img[@srcset]',
+    );
+
+    $images = null;
+    foreach ($queries_to_try as $query) {
+        $result = $xpath->query($query);
+        error_log('About page import: Query "' . $query . '" found ' . $result->length . ' images');
+        if ($result->length > 0 && ($images === null || $result->length > $images->length)) {
+            $images = $result;
+        }
+    }
+
+    if ($images === null || $images->length === 0) {
+        // Last resort: get ALL img tags
+        $images = $xpath->query('//img');
+        error_log('About page import: Fallback to all img tags: ' . $images->length . ' found');
+    }
+
+    error_log('About page import: Using query that found ' . $images->length . ' images');
+
+    foreach ($images as $index => $img) {
         $src = '';
 
+        // Adobe Portfolio uses lazy loading with data-srcset and data-src
+        // Check data-srcset FIRST (has all quality options)
+        $srcset = $img->getAttribute('data-srcset');
+        if (empty($srcset)) {
+            // Fallback to regular srcset
+            $srcset = $img->getAttribute('srcset');
+        }
+
         if (!empty($srcset)) {
-            // Parse srcset and get the largest image (usually 1920w or 3840w)
-            preg_match_all('/([^\s,]+)\s+(\d+)w/', $srcset, $matches, PREG_SET_ORDER);
+            // Parse srcset - format: "url 600w,url 1200w,url 1920w,url 3840w"
+            $srcset_entries = explode(',', $srcset);
             $best_width = 0;
-            foreach ($matches as $match) {
-                $width = intval($match[2]);
-                // Prefer 1920w or closest to it (not too large)
-                if ($width >= 1200 && $width <= 1920 && $width > $best_width) {
-                    $src = $match[1];
-                    $best_width = $width;
+            $best_src = '';
+
+            foreach ($srcset_entries as $entry) {
+                $entry = trim($entry);
+                // Match URL and width descriptor
+                if (preg_match('/^(.+)\s+(\d+)w$/', $entry, $match)) {
+                    $entry_url = trim($match[1]);
+                    $width = intval($match[2]);
+
+                    // Prefer 1920w or closest (between 1200-1920)
+                    if ($width >= 1200 && $width <= 1920 && $width > $best_width) {
+                        $best_src = $entry_url;
+                        $best_width = $width;
+                    }
                 }
             }
-            // Fallback to largest if no 1920w found
-            if (empty($src) && !empty($matches)) {
-                $largest = end($matches);
-                $src = $largest[1];
+
+            // Fallback: get largest under 3840
+            if (empty($best_src)) {
+                foreach ($srcset_entries as $entry) {
+                    $entry = trim($entry);
+                    if (preg_match('/^(.+)\s+(\d+)w$/', $entry, $match)) {
+                        $entry_url = trim($match[1]);
+                        $width = intval($match[2]);
+                        if ($width <= 3840 && $width > $best_width) {
+                            $best_src = $entry_url;
+                            $best_width = $width;
+                        }
+                    }
+                }
+            }
+
+            $src = $best_src;
+            if (!empty($src)) {
+                error_log('About page import: Found image from srcset: ' . substr($src, -60));
             }
         }
 
+        // Fallback to data-src (single full quality image)
         if (empty($src)) {
-            $src = $img->getAttribute('data-src') ?: $img->getAttribute('src');
+            $src = $img->getAttribute('data-src');
+            if (!empty($src)) {
+                error_log('About page import: Found image from data-src');
+            }
         }
 
-        // Skip placeholder images
+        // Last fallback to src attribute
+        if (empty($src)) {
+            $src = $img->getAttribute('src');
+        }
+
+        // Skip placeholder images and data URIs
         if (empty($src) || strpos($src, 'data:image') === 0) {
+            error_log('About page import: Skipping image ' . $index . ' - placeholder or data URI');
             continue;
         }
 
-        // Download and attach image
-        $tmp = download_url($src, 30);
-        if (!is_wp_error($tmp)) {
-            $file_array = array(
-                'name' => basename(parse_url($src, PHP_URL_PATH)) ?: 'about-image-' . count($all_images) . '.jpg',
-                'tmp_name' => $tmp
-            );
-            $attachment_id = media_handle_sideload($file_array, 0);
-            if (!is_wp_error($attachment_id)) {
-                $all_images[] = wp_get_attachment_url($attachment_id);
-            }
+        // Create unique key for deduplication using parse_url (safer than strtok)
+        $parsed = parse_url($src);
+        $url_for_key = ($parsed['host'] ?? '') . ($parsed['path'] ?? '');
+        $url_key = md5($url_for_key);
+
+        // Skip if already processed
+        if (isset($processed_urls[$url_key])) {
+            error_log('About page import: Skipping image ' . $index . ' - duplicate');
+            continue;
         }
+        $processed_urls[$url_key] = true;
+
+        error_log('About page import: Downloading image ' . $index . ': ' . substr($src, 0, 100) . '...');
+
+        // Download and attach image
+        $tmp = download_url($src, 60);
+        if (is_wp_error($tmp)) {
+            error_log('About page import: Download failed for image ' . $index . ': ' . $tmp->get_error_message());
+            continue;
+        }
+
+        $filename = basename($parsed['path'] ?? 'image.jpg');
+        if (empty($filename) || strlen($filename) < 5) {
+            $filename = 'about-image-' . count($all_images) . '.jpg';
+        }
+
+        $file_array = array(
+            'name' => $filename,
+            'tmp_name' => $tmp
+        );
+
+        $attachment_id = media_handle_sideload($file_array, 0);
+        if (is_wp_error($attachment_id)) {
+            error_log('About page import: Sideload failed for image ' . $index . ': ' . $attachment_id->get_error_message());
+            continue;
+        }
+
+        $all_images[] = wp_get_attachment_url($attachment_id);
+        error_log('About page import: Successfully imported image ' . $index);
+
+        // Small delay to avoid rate limiting from CDN
+        usleep(100000); // 100ms delay
     }
+
+    error_log('About page import: Total images imported: ' . count($all_images));
 
     // Build page content with proper structure
     $content = '';
@@ -1412,20 +1509,13 @@ function sessionale_import_about_page($url) {
         return false;
     }
 
-    $page_data = array(
+    $page_id = wp_insert_post(array(
         'post_title' => $title,
         'post_name' => 'about',
         'post_content' => $content,
         'post_status' => 'publish',
         'post_type' => 'page'
-    );
-
-    if ($page_id) {
-        $page_data['ID'] = $page_id;
-        wp_update_post($page_data);
-    } else {
-        $page_id = wp_insert_post($page_data);
-    }
+    ));
 
     return $page_id;
 }

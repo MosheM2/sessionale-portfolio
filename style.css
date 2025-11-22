@@ -1181,27 +1181,30 @@ img {
     margin-bottom: 0;
 }
 
-/* About page image grid */
+/* About page image grid - Masonry style */
 .about-image-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
+    column-count: 3;
+    column-gap: 15px;
+    margin-top: 50px;
 }
 
 .about-grid-item {
-    margin: 0;
+    margin: 0 0 15px 0;
     overflow: hidden;
+    break-inside: avoid;
+    border-radius: 4px;
 }
 
 .about-grid-item img {
     width: 100%;
     height: auto;
     display: block;
-    transition: transform 0.3s ease;
+    transition: transform 0.4s ease, filter 0.4s ease;
 }
 
 .about-grid-item:hover img {
-    transform: scale(1.03);
+    transform: scale(1.02);
+    filter: brightness(1.05);
 }
 
 /* Tablet: 2 columns for grid */
@@ -1216,11 +1219,16 @@ img {
     }
 
     .about-image-grid {
-        grid-template-columns: repeat(2, 1fr);
+        column-count: 2;
+        column-gap: 12px;
+    }
+
+    .about-grid-item {
+        margin-bottom: 12px;
     }
 }
 
-/* Mobile: stack vertically */
+/* Mobile: single column */
 @media (max-width: 600px) {
     .about-main-section {
         flex-direction: column;
@@ -1238,8 +1246,12 @@ img {
     }
 
     .about-image-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        column-count: 2;
+        column-gap: 10px;
+    }
+
+    .about-grid-item {
+        margin-bottom: 10px;
     }
 }
 
