@@ -951,14 +951,24 @@ class Portfolio_Import {
                     $this->log("Failed to download Adobe video, skipping: {$video_url}", 'warning');
                 }
             } else {
-                // YouTube/Vimeo - use WordPress embed block
-                $content .= sprintf(
-                    "\n\n" . '<!-- wp:embed {"url":"%s","type":"video","providerNameSlug":"youtube"} --><figure class="wp-block-embed is-type-video"><div class="wp-block-embed__wrapper">%s</div></figure><!-- /wp:embed -->' . "\n\n",
-                    esc_url($video_url),
-                    esc_url($video_url)
-                );
+                // YouTube/Vimeo - convert embed URLs to watch URLs for WordPress oEmbed
+                $embed_url = $video_url;
+
+                // Convert YouTube embed URL to watch URL
+                // youtube.com/embed/VIDEO_ID -> youtube.com/watch?v=VIDEO_ID
+                if (preg_match('/youtube\.com\/embed\/([^?\s&]+)/', $video_url, $matches)) {
+                    $embed_url = 'https://www.youtube.com/watch?v=' . $matches[1];
+                }
+                // Convert Vimeo embed URL to regular URL
+                // player.vimeo.com/video/VIDEO_ID -> vimeo.com/VIDEO_ID
+                elseif (preg_match('/player\.vimeo\.com\/video\/(\d+)/', $video_url, $matches)) {
+                    $embed_url = 'https://vimeo.com/' . $matches[1];
+                }
+
+                // Use simple URL on its own line - WordPress will auto-embed it
+                $content .= "\n\n" . esc_url($embed_url) . "\n\n";
                 $video_count++;
-                $this->log("Added embedded video to content: {$video_url}");
+                $this->log("Added embedded video to content: {$embed_url}");
             }
         }
 
