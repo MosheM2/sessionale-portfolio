@@ -75,9 +75,9 @@ function portfolio_migration_register_portfolio_cpt() {
         'show_ui'            => true,
         'show_in_menu'       => true,
         'query_var'          => true,
-        'rewrite'            => array('slug' => '%portfolio_category%', 'with_front' => false),
+        'rewrite'            => false, // We handle rewrites manually in portfolio_category_rewrite_rules()
         'capability_type'    => 'post',
-        'has_archive'        => true,
+        'has_archive'        => false, // Disable archive, we use custom category pages
         'hierarchical'       => false,
         'menu_position'      => 5,
         'menu_icon'          => 'dashicons-portfolio',
