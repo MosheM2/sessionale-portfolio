@@ -144,39 +144,302 @@ img {
 }
 
 /* Single Portfolio Project */
+.single-portfolio-content {
+    max-width: 100%;
+    padding: 0;
+}
+
+.single-portfolio {
+    width: 100%;
+}
+
+/* Project Header */
 .single-portfolio .project-header {
     max-width: 900px;
-    margin: 0 auto 40px;
+    margin: 60px auto 50px;
+    padding: 0 40px;
     text-align: center;
 }
 
 .project-title {
-    font-size: 36px;
-    font-weight: 600;
-    margin-bottom: 10px;
+    font-size: 42px;
+    font-weight: 300;
+    letter-spacing: -0.5px;
+    margin-bottom: 15px;
+    color: #1a1a1a;
 }
 
 .project-meta {
-    font-size: 14px;
+    font-size: 13px;
     color: #666;
-    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 20px;
 }
 
-.project-description {
-    font-size: 16px;
-    line-height: 1.8;
-    margin-bottom: 40px;
+.project-meta span {
+    display: inline-block;
 }
 
+/* Project Gallery / Content Area */
 .project-gallery {
-    max-width: 1200px;
+    max-width: 1000px;
     margin: 0 auto;
+    padding: 0 60px;
 }
 
-.project-gallery img,
-.project-gallery video {
-    margin-bottom: 30px;
+.project-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Credits Block */
+.project-content .portfolio-credits {
+    max-width: 700px;
+    margin: 0 auto 40px;
+    padding: 30px 40px;
+    background: #f8f8f8;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.project-content .portfolio-credits p {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.project-content .portfolio-credits p:last-child {
+    margin-bottom: 0;
+}
+
+/* Images in Project Content */
+.project-gallery figure.wp-block-image {
+    margin: 0;
     width: 100%;
+}
+
+.project-gallery img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 2px;
+}
+
+/* Videos in Project Content */
+.project-gallery figure.wp-block-video {
+    margin: 0;
+    width: 100%;
+}
+
+.project-gallery video {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 2px;
+    background: #000;
+}
+
+/* YouTube/Vimeo Embeds */
+.project-gallery .wp-block-embed,
+.project-gallery iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 2px;
+}
+
+.project-gallery .wp-block-embed iframe {
+    width: 100%;
+    height: 100%;
+}
+
+/* Button Links */
+.project-content .wp-block-buttons {
+    display: flex;
+    justify-content: center;
+    margin: 30px 0;
+}
+
+.project-content .wp-block-button__link {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 14px 32px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 3px;
+    transition: background 0.3s ease;
+}
+
+.project-content .wp-block-button__link:hover {
+    background: #333;
+    opacity: 1;
+}
+
+/* Project Navigation */
+.project-navigation {
+    max-width: 1000px;
+    margin: 80px auto 0;
+    padding: 40px 60px;
+    border-top: 1px solid #eee;
+}
+
+.project-navigation .nav-links {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.project-navigation .nav-previous,
+.project-navigation .nav-next {
+    flex: 1;
+}
+
+.project-navigation .nav-next {
+    text-align: right;
+}
+
+.project-navigation .nav-home {
+    flex: 0 0 auto;
+}
+
+.project-navigation .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666;
+    padding: 10px 0;
+    transition: color 0.3s ease;
+}
+
+.project-navigation .nav-link:hover {
+    color: #1a1a1a;
+    opacity: 1;
+}
+
+.project-navigation .nav-link-home {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 3px;
+}
+
+.project-navigation .nav-link-home:hover {
+    background: #333;
+    color: #fff;
+}
+
+.project-navigation .nav-arrow {
+    font-size: 18px;
+}
+
+/* ==========================================================================
+   Layout Modes
+   ========================================================================== */
+
+/* Auto Layout - Smart grid based on aspect ratio */
+.layout-auto .project-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* Landscape items span full width */
+.layout-auto .project-content .media-landscape {
+    grid-column: 1 / -1;
+}
+
+/* Portrait items stay in grid */
+.layout-auto .project-content .media-portrait {
+    grid-column: auto;
+}
+
+/* Credits block always full width */
+.layout-auto .project-content .portfolio-credits {
+    grid-column: 1 / -1;
+}
+
+/* Buttons always full width */
+.layout-auto .project-content .wp-block-buttons {
+    grid-column: 1 / -1;
+}
+
+/* YouTube/Vimeo embeds - check for portrait */
+.layout-auto .project-content .wp-block-embed {
+    grid-column: 1 / -1;
+}
+
+.layout-auto .project-content .wp-block-embed.media-portrait {
+    grid-column: auto;
+}
+
+/* Full Width Layout - Single column */
+.layout-full-width .project-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.layout-full-width .project-content figure,
+.layout-full-width .project-content .wp-block-embed {
+    width: 100%;
+}
+
+/* Grid Layout - Always 2 columns */
+.layout-grid .project-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.layout-grid .project-content .portfolio-credits,
+.layout-grid .project-content .wp-block-buttons {
+    grid-column: 1 / -1;
+}
+
+/* Portrait media items styling */
+.media-portrait img,
+.media-portrait video {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+}
+
+/* Ensure proper aspect ratios are maintained */
+.layout-auto .project-content figure.media-portrait,
+.layout-grid .project-content figure {
+    aspect-ratio: auto;
+    overflow: hidden;
+}
+
+/* Video containers */
+.layout-auto .project-content figure.wp-block-video.media-portrait video,
+.layout-grid .project-content figure.wp-block-video video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+/* Responsive: Stack to single column on mobile */
+@media (max-width: 768px) {
+    .layout-auto .project-content,
+    .layout-grid .project-content {
+        grid-template-columns: 1fr;
+    }
+
+    .layout-auto .project-content .media-portrait,
+    .layout-auto .project-content .media-landscape {
+        grid-column: 1 / -1;
+    }
 }
 
 /* Footer */
@@ -212,26 +475,73 @@ img {
 }
 
 /* Responsive Design */
+@media (max-width: 1024px) {
+    .project-gallery {
+        padding: 0 40px;
+    }
+
+    .project-navigation {
+        padding: 40px;
+    }
+}
+
 @media (max-width: 768px) {
     .portfolio-grid {
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
         gap: 20px;
     }
-    
+
     .site-header {
         padding: 30px 20px;
     }
-    
+
     .site-title {
         font-size: 24px;
     }
-    
+
     .main-navigation ul {
         gap: 20px;
     }
-    
+
+    /* Single Portfolio Mobile */
+    .single-portfolio .project-header {
+        margin: 40px auto 30px;
+        padding: 0 20px;
+    }
+
     .project-title {
         font-size: 28px;
+    }
+
+    .project-meta {
+        gap: 15px;
+        font-size: 11px;
+    }
+
+    .project-gallery {
+        padding: 0 20px;
+    }
+
+    .project-content {
+        gap: 15px;
+    }
+
+    .project-content .portfolio-credits {
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+
+    .project-navigation {
+        margin-top: 50px;
+        padding: 30px 20px;
+    }
+
+    .project-navigation .nav-link {
+        font-size: 12px;
+    }
+
+    .project-navigation .nav-link-home {
+        padding: 10px 18px;
     }
 }
 
@@ -239,10 +549,24 @@ img {
     .portfolio-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .main-navigation ul {
         flex-direction: column;
         gap: 15px;
+    }
+
+    .project-title {
+        font-size: 24px;
+    }
+
+    .project-navigation .nav-links {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .project-navigation .nav-previous,
+    .project-navigation .nav-next {
+        text-align: center;
     }
 }
 

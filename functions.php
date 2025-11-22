@@ -349,11 +349,28 @@ add_action('add_meta_boxes', 'portfolio_migration_add_meta_boxes');
  */
 function portfolio_migration_details_callback($post) {
     wp_nonce_field('portfolio_migration_save_meta', 'portfolio_migration_meta_nonce');
-    
+
     $year = get_post_meta($post->ID, 'portfolio_year', true);
     $client = get_post_meta($post->ID, 'portfolio_client', true);
-    
+    $layout = get_post_meta($post->ID, 'portfolio_layout', true);
+
+    if (empty($layout)) {
+        $layout = 'auto';
+    }
+
     ?>
+    <p>
+        <label for="portfolio_layout"><strong><?php _e('Layout', 'sessionale-portfolio'); ?></strong></label>
+        <select id="portfolio_layout" name="portfolio_layout" style="width: 100%; margin-top: 5px;">
+            <option value="auto" <?php selected($layout, 'auto'); ?>><?php _e('Auto (Smart Detection)', 'sessionale-portfolio'); ?></option>
+            <option value="full-width" <?php selected($layout, 'full-width'); ?>><?php _e('Full Width (Single Column)', 'sessionale-portfolio'); ?></option>
+            <option value="grid" <?php selected($layout, 'grid'); ?>><?php _e('Grid (2 Columns)', 'sessionale-portfolio'); ?></option>
+        </select>
+        <span class="description" style="display: block; margin-top: 5px; font-size: 12px; color: #666;">
+            <?php _e('Auto: Portrait media side-by-side, landscape full width', 'sessionale-portfolio'); ?>
+        </span>
+    </p>
+    <hr style="margin: 15px 0;">
     <p>
         <label for="portfolio_year"><?php _e('Year', 'sessionale-portfolio'); ?></label>
         <input type="text" id="portfolio_year" name="portfolio_year" value="<?php echo esc_attr($year); ?>" style="width: 100%;">
@@ -388,9 +405,17 @@ function portfolio_migration_save_meta($post_id) {
     if (isset($_POST['portfolio_year'])) {
         update_post_meta($post_id, 'portfolio_year', sanitize_text_field($_POST['portfolio_year']));
     }
-    
+
     if (isset($_POST['portfolio_client'])) {
         update_post_meta($post_id, 'portfolio_client', sanitize_text_field($_POST['portfolio_client']));
+    }
+
+    if (isset($_POST['portfolio_layout'])) {
+        $allowed_layouts = array('auto', 'full-width', 'grid');
+        $layout = sanitize_text_field($_POST['portfolio_layout']);
+        if (in_array($layout, $allowed_layouts)) {
+            update_post_meta($post_id, 'portfolio_layout', $layout);
+        }
     }
 }
 add_action('save_post_portfolio', 'portfolio_migration_save_meta');
