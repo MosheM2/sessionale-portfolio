@@ -511,10 +511,12 @@ function sessionale_save_settings() {
     // Save to database
     update_option('sessionale_portfolio_settings', $settings);
 
-    // Update site title with owner name
+    // Update site title with owner name and set default tagline
     if (!empty($settings['owner_name'])) {
         update_option('blogname', $settings['owner_name']);
     }
+    // Always set the site tagline/subtitle to "Portfolio"
+    update_option('blogdescription', 'Portfolio');
 
     $response = array(
         'message' => __('Settings saved successfully!', 'sessionale-portfolio'),
