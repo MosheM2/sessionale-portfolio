@@ -13,6 +13,9 @@ if (!defined('ABSPATH')) {
 // Load the unified import class
 require_once get_template_directory() . '/inc/class-portfolio-import.php';
 
+// Load the portfolio gallery meta box
+require_once get_template_directory() . '/inc/class-portfolio-gallery.php';
+
 /**
  * Theme Setup
  */
@@ -1925,3 +1928,81 @@ function sessionale_social_links_page() {
     </div>
     <?php
 }
+
+/**
+ * Render portfolio gallery from meta data
+ * 
+ * @param array $gallery Gallery items array
+ * @param string $description Optional description text
+ */
+function sessionale_render_gallery($gallery, $description = "") {
+    if (empty($gallery)) {
+        return;
+    }
+
+    // Output description/credits first if available
+    if (!empty($description)) {
+        echo "<div class=\"wp-block-group portfolio-credits\">\n";
+        $lines = explode("\n", $description);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (!empty($line)) {
+                echo "<p>" . esc_html($line) . "</p>\n";
+            }
+        }
+        echo "</div>\n";
+    }
+
+    // Output gallery items
+    foreach ($gallery as $item) {
+        $type = isset($item["type"]) ? $item["type"] : "image";
+        $url = isset($item["url"]) ? $item["url"] : "";
+        $layout = isset($item["layout"]) ? $item["layout"] : "auto";
+        $width = isset($item["width"]) ? $item["width"] : 0;
+        $height = isset($item["height"]) ? $item["height"] : 0;
+        $attachment_id = isset($item["attachment_id"]) ? $item["attachment_id"] : 0;
+
+        // Determine aspect ratio class
+        $aspect_class = "media-landscape";
+        if ($width > 0 && $height > 0) {
+            $ratio = $width / $height;
+            if ($ratio < 0.9) {
+                $aspect_class = "media-portrait";
+            } elseif ($ratio <= 1.2) {
+                $aspect_class = "media-square";
+            }
+        }
+
+        // Add layout class
+        $layout_class = "";
+        if ($layout !== "auto") {
+            $layout_class = " layout-" . $layout;
+        }
+
+        if ($type === "image") {
+            echo sprintf(
+                "<figure class=\"wp-block-image size-full %s%s\" data-layout=\"%s\"><img src=\"%s\" alt=\"%s\" class=\"wp-image-%d\" width=\"%d\" height=\"%d\" /></figure>\n",
+                esc_attr($aspect_class),
+                esc_attr($layout_class),
+                esc_attr($layout),
+                esc_url($url),
+                esc_attr(get_the_title()),
+                intval($attachment_id),
+                intval($width),
+                intval($height)
+            );
+        } elseif ($type === "video") {
+            echo sprintf(
+                "<figure class=\"wp-block-video %s%s\" data-layout=\"%s\"><video controls src=\"%s\"></video></figure>\n",
+                esc_attr($aspect_class),
+                esc_attr($layout_class),
+                esc_attr($layout),
+                esc_url($url)
+            );
+        } elseif ($type === "embed") {
+            // For embeds, output the URL and let WordPress oEmbed handle it
+            echo "\n" . esc_url($url) . "\n";
+        }
+    }
+}
+

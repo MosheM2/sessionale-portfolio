@@ -12,6 +12,9 @@ $layout = get_post_meta(get_the_ID(), 'portfolio_layout', true);
 if (empty($layout)) {
     $layout = 'auto';
 }
+
+// Get gallery from meta
+$gallery = get_post_meta(get_the_ID(), '_portfolio_gallery', true);
 ?>
 
 <main class="site-content single-portfolio-content">
@@ -20,6 +23,7 @@ if (empty($layout)) {
         $year = get_post_meta(get_the_ID(), 'portfolio_year', true);
         $client = get_post_meta(get_the_ID(), 'portfolio_client', true);
         $categories = get_the_terms(get_the_ID(), 'portfolio_category');
+        $description = get_post_meta(get_the_ID(), 'portfolio_description', true);
         ?>
 
         <article id="post-<?php the_ID(); ?>" <?php post_class('single-portfolio layout-' . esc_attr($layout)); ?> data-layout="<?php echo esc_attr($layout); ?>">
@@ -44,7 +48,7 @@ if (empty($layout)) {
             <!-- Project Content (images, videos, text) -->
             <div class="project-gallery">
                 <div class="project-content">
-                    <?php the_content(); ?>
+                    <?php sessionale_render_gallery($gallery, $description); ?>
                 </div>
             </div>
 

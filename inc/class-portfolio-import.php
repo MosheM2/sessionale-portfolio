@@ -973,7 +973,7 @@ class Portfolio_Import {
             $this->log("No cover image available - project will use plain color placeholder");
         }
         
-        // Build post content
+        // Build post content (text, videos, links - images go to gallery meta only)
         $content = '';
 
         // Add description/credits at the beginning
@@ -993,22 +993,8 @@ class Portfolio_Import {
             $this->log("Added description to content");
         }
 
-        // Add images to content
-        foreach ($content_images as $attachment_id) {
-            $image_full = wp_get_attachment_image_src($attachment_id, 'full');
-            
-            if ($image_full) {
-                $content .= sprintf(
-                    '<figure class="wp-block-image size-full"><img src="%s" alt="%s" class="wp-image-%d" width="%d" height="%d" /></figure>' . "\n\n",
-                    esc_url($image_full[0]),
-                    esc_attr($title),
-                    $attachment_id,
-                    $image_full[1],
-                    $image_full[2]
-                );
-            }
-        }
-        
+        // Note: Images are saved to _portfolio_gallery meta only, not to block editor content
+
         // Add videos to content
         $video_count = 0;
         foreach ($videos as $video_url) {
@@ -1066,6 +1052,52 @@ class Portfolio_Import {
             'ID' => $post_id,
             'post_content' => $content
         ]);
+
+        // Build and save gallery meta for the custom gallery system
+        $gallery_items = [];
+
+        // Add images to gallery
+        foreach ($content_images as $attachment_id) {
+            $image_full = wp_get_attachment_image_src($attachment_id, 'full');
+            $image_thumb = wp_get_attachment_image_src($attachment_id, 'medium');
+
+            if ($image_full) {
+                $gallery_items[] = [
+                    'type' => 'image',
+                    'attachment_id' => $attachment_id,
+                    'url' => $image_full[0],
+                    'thumb' => $image_thumb ? $image_thumb[0] : $image_full[0],
+                    'width' => $image_full[1],
+                    'height' => $image_full[2],
+                    'layout' => 'auto'
+                ];
+            }
+        }
+
+        // Add videos to gallery
+        foreach ($videos as $video_url) {
+            if (strpos($video_url, 'adobe.io') !== false) {
+                // Local video - find the attachment
+                $gallery_items[] = [
+                    'type' => 'video',
+                    'url' => $video_url,
+                    'layout' => 'auto'
+                ];
+            } else {
+                // Embed video
+                $gallery_items[] = [
+                    'type' => 'embed',
+                    'url' => $video_url,
+                    'layout' => 'auto'
+                ];
+            }
+        }
+
+        // Save gallery meta
+        if (!empty($gallery_items)) {
+            update_post_meta($post_id, '_portfolio_gallery', $gallery_items);
+            $this->log("Saved gallery meta with " . count($gallery_items) . " items");
+        }
 
         $this->log("Created content for post {$post_id} - Downloaded: {$imported_count} images, Added: {$video_count} videos, Added: {$link_count} links");
         $this->log("Successfully created project \"{$title}\" with {$imported_count} images, {$video_count} videos, and {$link_count} links");

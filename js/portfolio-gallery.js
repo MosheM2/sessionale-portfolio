@@ -80,12 +80,21 @@
             const height = img.naturalHeight || img.height || 1;
             const ratio = width / height;
 
+            // Get layout preference from data attribute
+            const layoutPref = fig.getAttribute('data-layout') || 'auto';
+
             return {
                 element: fig,
                 ratio: ratio,
                 isLandscape: ratio > 1.2,
                 isPortrait: ratio < 0.9,
-                isSquare: ratio >= 0.9 && ratio <= 1.2
+                isSquare: ratio >= 0.9 && ratio <= 1.2,
+                layout: layoutPref,
+                isFull: layoutPref === 'full',
+                isTwoThirds: layoutPref === 'two-thirds',
+                isHalf: layoutPref === 'half',
+                isThird: layoutPref === 'third',
+                isQuarter: layoutPref === 'quarter'
             };
         }).filter(Boolean);
 
@@ -163,8 +172,23 @@
             rowDiv.style.alignItems = 'stretch';
 
             row.forEach(item => {
-                // Use aspect ratio as flex-grow so images have equal height
-                item.element.style.flex = `${item.ratio} 0 0`;
+                // Determine flex value based on layout preference
+                let flexValue = item.ratio; // Default: use aspect ratio
+
+                // Explicit layout overrides
+                if (item.isFull) {
+                    flexValue = 1;
+                } else if (item.isTwoThirds) {
+                    flexValue = 2; // 2:1 ratio with third
+                } else if (item.isHalf) {
+                    flexValue = 1;
+                } else if (item.isThird) {
+                    flexValue = 1;
+                } else if (item.isQuarter) {
+                    flexValue = 1;
+                }
+
+                item.element.style.flex = `${flexValue} 0 0`;
                 item.element.style.minWidth = '0';
                 item.element.style.margin = '0';
                 item.element.style.overflow = 'hidden';
@@ -182,7 +206,7 @@
     }
 
     /**
-     * Create smart rows based on image aspect ratios
+     * Create smart rows based on image aspect ratios and layout preferences
      */
     function createSmartRows(items) {
         const rows = [];
@@ -191,6 +215,67 @@
         while (i < items.length) {
             const current = items[i];
 
+            // Check for explicit layout preferences first
+            if (current.isFull) {
+                // Full width - always own row
+                rows.push([current]);
+                i++;
+                continue;
+            }
+
+            if (current.isHalf) {
+                // Half width - pair with next half or any image
+                const halfRow = [current];
+                if (i + 1 < items.length) {
+                    halfRow.push(items[i + 1]);
+                    i += 2;
+                } else {
+                    i++;
+                }
+                rows.push(halfRow);
+                continue;
+            }
+
+            if (current.isTwoThirds) {
+                // Two-thirds width - pair with a third or let it be alone
+                const twoThirdsRow = [current];
+                if (i + 1 < items.length && (items[i + 1].isThird || items[i + 1].layout === 'auto')) {
+                    twoThirdsRow.push(items[i + 1]);
+                    i += 2;
+                } else {
+                    i++;
+                }
+                rows.push(twoThirdsRow);
+                continue;
+            }
+
+            if (current.isThird) {
+                // Third width - group up to 3
+                const thirdRow = [current];
+                let j = i + 1;
+                while (j < items.length && thirdRow.length < 3) {
+                    thirdRow.push(items[j]);
+                    j++;
+                }
+                rows.push(thirdRow);
+                i = j;
+                continue;
+            }
+
+            if (current.isQuarter) {
+                // Quarter width - group up to 4
+                const quarterRow = [current];
+                let j = i + 1;
+                while (j < items.length && quarterRow.length < 4) {
+                    quarterRow.push(items[j]);
+                    j++;
+                }
+                rows.push(quarterRow);
+                i = j;
+                continue;
+            }
+
+            // Auto layout - use aspect ratio based logic
             // Landscape images get their own row (unless followed by specific patterns)
             if (current.isLandscape) {
                 // Check for pattern: landscape, portrait, landscape, portrait
