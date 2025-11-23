@@ -978,62 +978,24 @@ class Portfolio_Import {
 
         // Add description/credits at the beginning
         if (!empty($description)) {
-            // Convert newlines to proper paragraph breaks
+            // Convert newlines to proper paragraph blocks
             $desc_lines = explode("\n", $description);
             $desc_html = '';
             foreach ($desc_lines as $line) {
                 $line = trim($line);
                 if (!empty($line)) {
-                    $desc_html .= '<p>' . esc_html($line) . '</p>' . "\n";
+                    $desc_html .= '<!-- wp:paragraph --><p>' . esc_html($line) . '</p><!-- /wp:paragraph -->' . "\n";
                 }
             }
-            $content .= '<!-- wp:group {"className":"portfolio-credits"} --><div class="wp-block-group portfolio-credits">' . "\n";
+            $content .= '<!-- wp:group {"className":"portfolio-credits"} -->' . "\n";
+            $content .= '<div class="wp-block-group portfolio-credits">';
             $content .= $desc_html;
-            $content .= '</div><!-- /wp:group -->' . "\n\n";
+            $content .= '</div>' . "\n";
+            $content .= '<!-- /wp:group -->' . "\n\n";
             $this->log("Added description to content");
         }
 
-        // Note: Images are saved to _portfolio_gallery meta only, not to block editor content
-
-        // Add videos to content
-        $video_count = 0;
-        foreach ($videos as $video_url) {
-            // Check if it's an Adobe video - download and embed locally
-            if (strpos($video_url, 'adobe.io') !== false) {
-                $video_attachment_id = $this->download_adobe_video($video_url, $post_id, $title);
-                if ($video_attachment_id) {
-                    $video_src = wp_get_attachment_url($video_attachment_id);
-                    $content .= sprintf(
-                        "\n\n" . '<figure class="wp-block-video"><video controls src="%s" class="wp-video-%d"></video></figure>' . "\n\n",
-                        esc_url($video_src),
-                        $video_attachment_id
-                    );
-                    $video_count++;
-                    $this->log("Added local video to content: {$video_src}");
-                } else {
-                    $this->log("Failed to download Adobe video, skipping: {$video_url}", 'warning');
-                }
-            } else {
-                // YouTube/Vimeo - convert embed URLs to watch URLs for WordPress oEmbed
-                $embed_url = $video_url;
-
-                // Convert YouTube embed URL to watch URL
-                // youtube.com/embed/VIDEO_ID -> youtube.com/watch?v=VIDEO_ID
-                if (preg_match('/youtube\.com\/embed\/([^?\s&]+)/', $video_url, $matches)) {
-                    $embed_url = 'https://www.youtube.com/watch?v=' . $matches[1];
-                }
-                // Convert Vimeo embed URL to regular URL
-                // player.vimeo.com/video/VIDEO_ID -> vimeo.com/VIDEO_ID
-                elseif (preg_match('/player\.vimeo\.com\/video\/(\d+)/', $video_url, $matches)) {
-                    $embed_url = 'https://vimeo.com/' . $matches[1];
-                }
-
-                // Use simple URL on its own line - WordPress will auto-embed it
-                $content .= "\n\n" . esc_url($embed_url) . "\n\n";
-                $video_count++;
-                $this->log("Added embedded video to content: {$embed_url}");
-            }
-        }
+        // Note: Images and videos are saved to _portfolio_gallery meta only, not to block editor content
 
         // Add button links to content
         $link_count = 0;
@@ -1099,7 +1061,8 @@ class Portfolio_Import {
             $this->log("Saved gallery meta with " . count($gallery_items) . " items");
         }
 
-        $this->log("Created content for post {$post_id} - Downloaded: {$imported_count} images, Added: {$video_count} videos, Added: {$link_count} links");
+        $video_count = count($videos);
+        $this->log("Created content for post {$post_id} - Downloaded: {$imported_count} images, {$video_count} videos, {$link_count} links");
         $this->log("Successfully created project \"{$title}\" with {$imported_count} images, {$video_count} videos, and {$link_count} links");
         
         return $post_id;

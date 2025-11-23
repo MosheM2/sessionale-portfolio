@@ -73,8 +73,12 @@
                     'full': 'Full',
                     'two-thirds': '2/3',
                     'half': '1/2',
+                    'two-fifths': '2/5',
                     'third': '1/3',
-                    'quarter': '1/4'
+                    'quarter': '1/4',
+                    'fifth': '1/5',
+                    'sixth': '1/6',
+                    'eighth': '1/8'
                 };
                 $item.append('<span class="layout-badge">' + (badgeText[layout] || layout) + '</span>');
             }
@@ -178,8 +182,12 @@
             'full': 'Full',
             'two-thirds': '2/3',
             'half': '1/2',
+            'two-fifths': '2/5',
             'third': '1/3',
-            'quarter': '1/4'
+            'quarter': '1/4',
+            'fifth': '1/5',
+            'sixth': '1/6',
+            'eighth': '1/8'
         };
         var layoutBadge = item.layout !== 'auto' ? '<span class="layout-badge">' + (badgeLabels[item.layout] || item.layout) + '</span>' : '';
 
@@ -194,8 +202,12 @@
                 '<label><input type="radio" name="layout_' + index + '" value="full"' + (item.layout === 'full' ? ' checked' : '') + '> Full (100%)</label>' +
                 '<label><input type="radio" name="layout_' + index + '" value="two-thirds"' + (item.layout === 'two-thirds' ? ' checked' : '') + '> 2/3 Width</label>' +
                 '<label><input type="radio" name="layout_' + index + '" value="half"' + (item.layout === 'half' ? ' checked' : '') + '> 1/2 Width</label>' +
+                '<label><input type="radio" name="layout_' + index + '" value="two-fifths"' + (item.layout === 'two-fifths' ? ' checked' : '') + '> 2/5 Width</label>' +
                 '<label><input type="radio" name="layout_' + index + '" value="third"' + (item.layout === 'third' ? ' checked' : '') + '> 1/3 Width</label>' +
                 '<label><input type="radio" name="layout_' + index + '" value="quarter"' + (item.layout === 'quarter' ? ' checked' : '') + '> 1/4 Width</label>' +
+                '<label><input type="radio" name="layout_' + index + '" value="fifth"' + (item.layout === 'fifth' ? ' checked' : '') + '> 1/5 Width</label>' +
+                '<label><input type="radio" name="layout_' + index + '" value="sixth"' + (item.layout === 'sixth' ? ' checked' : '') + '> 1/6 Width</label>' +
+                '<label><input type="radio" name="layout_' + index + '" value="eighth"' + (item.layout === 'eighth' ? ' checked' : '') + '> 1/8 Width</label>' +
             '</div>' +
             layoutBadge +
             '<div class="portfolio-gallery-item-info">' +

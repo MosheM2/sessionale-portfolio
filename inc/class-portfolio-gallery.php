@@ -76,9 +76,13 @@ class Portfolio_Gallery {
                 background: #fff;
                 border: 2px solid #ddd;
                 border-radius: 4px;
-                overflow: hidden;
+                overflow: visible;
                 cursor: move;
                 transition: border-color 0.2s;
+            }
+            .portfolio-gallery-item img,
+            .portfolio-gallery-item video {
+                border-radius: 2px 2px 0 0;
             }
             .portfolio-gallery-item:hover {
                 border-color: #2271b1;
@@ -280,8 +284,12 @@ class Portfolio_Gallery {
                 <label><input type="radio" name="layout_<?php echo $index; ?>" value="full" <?php checked($layout, 'full'); ?>> Full (100%)</label>
                 <label><input type="radio" name="layout_<?php echo $index; ?>" value="two-thirds" <?php checked($layout, 'two-thirds'); ?>> 2/3 Width</label>
                 <label><input type="radio" name="layout_<?php echo $index; ?>" value="half" <?php checked($layout, 'half'); ?>> 1/2 Width</label>
+                <label><input type="radio" name="layout_<?php echo $index; ?>" value="two-fifths" <?php checked($layout, 'two-fifths'); ?>> 2/5 Width</label>
                 <label><input type="radio" name="layout_<?php echo $index; ?>" value="third" <?php checked($layout, 'third'); ?>> 1/3 Width</label>
                 <label><input type="radio" name="layout_<?php echo $index; ?>" value="quarter" <?php checked($layout, 'quarter'); ?>> 1/4 Width</label>
+                <label><input type="radio" name="layout_<?php echo $index; ?>" value="fifth" <?php checked($layout, 'fifth'); ?>> 1/5 Width</label>
+                <label><input type="radio" name="layout_<?php echo $index; ?>" value="sixth" <?php checked($layout, 'sixth'); ?>> 1/6 Width</label>
+                <label><input type="radio" name="layout_<?php echo $index; ?>" value="eighth" <?php checked($layout, 'eighth'); ?>> 1/8 Width</label>
             </div>
 
             <?php if ($layout !== 'auto') :
@@ -289,8 +297,12 @@ class Portfolio_Gallery {
                     'full' => 'Full',
                     'two-thirds' => '2/3',
                     'half' => '1/2',
+                    'two-fifths' => '2/5',
                     'third' => '1/3',
-                    'quarter' => '1/4'
+                    'quarter' => '1/4',
+                    'fifth' => '1/5',
+                    'sixth' => '1/6',
+                    'eighth' => '1/8'
                 );
                 $badge_text = isset($badge_labels[$layout]) ? $badge_labels[$layout] : ucfirst($layout);
             ?>

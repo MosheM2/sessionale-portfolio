@@ -22,63 +22,80 @@
         const container = document.querySelector('.layout-auto .project-content, .layout-grid .project-content');
         if (!container) return;
 
-        const figures = Array.from(container.querySelectorAll('figure.wp-block-image'));
+        // Select all media figures: images, videos, and embeds
+        const figures = Array.from(container.querySelectorAll('figure.wp-block-image, figure.wp-block-video, figure.wp-block-embed'));
         if (figures.length === 0) return;
 
         // Wait for all images to load to get accurate dimensions
         const images = figures.map(fig => fig.querySelector('img')).filter(Boolean);
         let loadedCount = 0;
+        const totalToLoad = images.length || 1; // At least 1 to trigger if no images
 
-        function onImageLoad() {
+        function onMediaLoad() {
             loadedCount++;
-            if (loadedCount >= images.length && !masonryInitialized) {
+            if (loadedCount >= totalToLoad && !masonryInitialized) {
                 masonryInitialized = true;
-                arrangeImages(container, figures);
+                arrangeMedia(container, figures);
             }
         }
 
-        images.forEach(img => {
-            if (img.complete) {
-                onImageLoad();
-            } else {
-                img.addEventListener('load', onImageLoad);
-                img.addEventListener('error', onImageLoad);
-            }
-        });
+        if (images.length === 0) {
+            // No images, just videos/embeds - arrange immediately
+            masonryInitialized = true;
+            arrangeMedia(container, figures);
+        } else {
+            images.forEach(img => {
+                if (img.complete) {
+                    onMediaLoad();
+                } else {
+                    img.addEventListener('load', onMediaLoad);
+                    img.addEventListener('error', onMediaLoad);
+                }
+            });
 
-        // Fallback timeout
-        setTimeout(() => {
-            if (!masonryInitialized) {
-                masonryInitialized = true;
-                arrangeImages(container, figures);
-            }
-        }, 2000);
+            // Fallback timeout
+            setTimeout(() => {
+                if (!masonryInitialized) {
+                    masonryInitialized = true;
+                    arrangeMedia(container, figures);
+                }
+            }, 2000);
+        }
     }
 
     /**
-     * Arrange images into smart rows
+     * Arrange media (images, videos, embeds) into smart rows
      */
-    function arrangeImages(container, figures) {
-        // Get ALL children to preserve non-image elements
+    function arrangeMedia(container, figures) {
+        // Get ALL children to preserve non-media elements
         const allChildren = Array.from(container.children);
 
-        // Separate credits (goes at top) from other non-image elements
+        // Separate credits (goes at top) from other non-media elements
         const creditsElements = allChildren.filter(child =>
             child.matches('.portfolio-credits, .wp-block-group.portfolio-credits, [class*="portfolio-credits"]')
         );
-        const otherNonImageElements = allChildren.filter(child =>
-            !child.matches('figure.wp-block-image') &&
+        const otherNonMediaElements = allChildren.filter(child =>
+            !child.matches('figure.wp-block-image, figure.wp-block-video, figure.wp-block-embed') &&
             !child.matches('.portfolio-credits, .wp-block-group.portfolio-credits, [class*="portfolio-credits"]')
         );
 
-        // Analyze each image figure
-        const imageItems = figures.map(fig => {
-            const img = fig.querySelector('img');
-            if (!img) return null;
+        // Analyze each media figure
+        const mediaItems = figures.map(fig => {
+            let ratio = 16 / 9; // Default aspect ratio for videos/embeds
 
-            const width = img.naturalWidth || img.width || 1;
-            const height = img.naturalHeight || img.height || 1;
-            const ratio = width / height;
+            // For images, get actual dimensions
+            const img = fig.querySelector('img');
+            if (img) {
+                const width = img.naturalWidth || img.width || 16;
+                const height = img.naturalHeight || img.height || 9;
+                ratio = width / height;
+            }
+
+            // For videos, try to get dimensions or use 16:9 default
+            const video = fig.querySelector('video');
+            if (video && video.videoWidth && video.videoHeight) {
+                ratio = video.videoWidth / video.videoHeight;
+            }
 
             // Get layout preference from data attribute
             const layoutPref = fig.getAttribute('data-layout') || 'auto';
@@ -93,15 +110,19 @@
                 isFull: layoutPref === 'full',
                 isTwoThirds: layoutPref === 'two-thirds',
                 isHalf: layoutPref === 'half',
+                isTwoFifths: layoutPref === 'two-fifths',
                 isThird: layoutPref === 'third',
-                isQuarter: layoutPref === 'quarter'
+                isQuarter: layoutPref === 'quarter',
+                isFifth: layoutPref === 'fifth',
+                isSixth: layoutPref === 'sixth',
+                isEighth: layoutPref === 'eighth'
             };
         }).filter(Boolean);
 
-        if (imageItems.length === 0) return;
+        if (mediaItems.length === 0) return;
 
-        // Group image items into rows
-        const rows = createSmartRows(imageItems);
+        // Group media items into rows
+        const rows = createSmartRows(mediaItems);
 
         // Clear container
         container.innerHTML = '';
@@ -125,8 +146,8 @@
             }
         });
 
-        // Add other non-image elements at the end (videos, buttons)
-        otherNonImageElements.forEach(el => {
+        // Add other non-media elements at the end (buttons, etc.)
+        otherNonMediaElements.forEach(el => {
             container.appendChild(el);
         });
     }
@@ -144,6 +165,35 @@
         rowDiv.style.gap = '20px';
         rowDiv.style.width = '100%';
 
+        // Helper function to style media element
+        function styleMediaElement(item) {
+            const img = item.element.querySelector('img');
+            const video = item.element.querySelector('video');
+            const embedContainer = item.element.querySelector('.video-embed-container');
+            const iframe = item.element.querySelector('iframe');
+
+            if (img) {
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+            }
+            if (video) {
+                video.style.width = '100%';
+                video.style.height = '100%';
+                video.style.objectFit = 'cover';
+            }
+            if (embedContainer) {
+                embedContainer.style.width = '100%';
+                embedContainer.style.height = '100%';
+                embedContainer.style.paddingBottom = '0';
+                embedContainer.style.position = 'relative';
+            }
+            if (iframe && !embedContainer) {
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+            }
+        }
+
         // Check if this is a compact row (4 items: L+P+L+P pattern)
         if (row.isCompact) {
             rowDiv.className = 'gallery-row gallery-row-compact';
@@ -152,13 +202,7 @@
                 item.element.style.flex = `${item.ratio} 0 0`;
                 item.element.style.minWidth = '0';
                 item.element.style.margin = '0';
-                const img = item.element.querySelector('img');
-                if (img) {
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.style.objectFit = 'cover';
-                    img.style.objectPosition = 'center center';
-                }
+                styleMediaElement(item);
                 rowDiv.appendChild(item.element);
             });
         } else if (row.length === 1) {
@@ -175,34 +219,47 @@
                 // Determine flex value based on layout preference
                 let flexValue = item.ratio; // Default: use aspect ratio
 
-                // Explicit layout overrides
-                if (item.isFull) {
-                    flexValue = 1;
-                } else if (item.isTwoThirds) {
-                    flexValue = 2; // 2:1 ratio with third
-                } else if (item.isHalf) {
-                    flexValue = 1;
-                } else if (item.isThird) {
-                    flexValue = 1;
-                } else if (item.isQuarter) {
-                    flexValue = 1;
+                // Explicit layout overrides - use actual width fractions
+                if (hasExplicitLayout(item)) {
+                    const width = getLayoutWidth(item);
+                    // Use width as flex-grow (e.g., 2/5 = 0.4, 1/5 = 0.2)
+                    // Multiply by 10 for nicer numbers
+                    flexValue = width * 10;
                 }
 
                 item.element.style.flex = `${flexValue} 0 0`;
                 item.element.style.minWidth = '0';
                 item.element.style.margin = '0';
                 item.element.style.overflow = 'hidden';
-                const img = item.element.querySelector('img');
-                if (img) {
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.style.objectFit = 'cover';
-                }
+                styleMediaElement(item);
                 rowDiv.appendChild(item.element);
             });
         }
 
         return rowDiv;
+    }
+
+    /**
+     * Get the width fraction for a layout type
+     */
+    function getLayoutWidth(item) {
+        if (item.isFull) return 1;
+        if (item.isTwoThirds) return 2/3;
+        if (item.isHalf) return 1/2;
+        if (item.isTwoFifths) return 2/5;
+        if (item.isThird) return 1/3;
+        if (item.isQuarter) return 1/4;
+        if (item.isFifth) return 1/5;
+        if (item.isSixth) return 1/6;
+        if (item.isEighth) return 1/8;
+        return 0; // auto - will be handled separately
+    }
+
+    /**
+     * Check if item has explicit layout (not auto)
+     */
+    function hasExplicitLayout(item) {
+        return item.layout !== 'auto';
     }
 
     /**
@@ -223,54 +280,37 @@
                 continue;
             }
 
-            if (current.isHalf) {
-                // Half width - pair with next half or any image
-                const halfRow = [current];
-                if (i + 1 < items.length) {
-                    halfRow.push(items[i + 1]);
-                    i += 2;
-                } else {
-                    i++;
-                }
-                rows.push(halfRow);
-                continue;
-            }
-
-            if (current.isTwoThirds) {
-                // Two-thirds width - pair with a third or let it be alone
-                const twoThirdsRow = [current];
-                if (i + 1 < items.length && (items[i + 1].isThird || items[i + 1].layout === 'auto')) {
-                    twoThirdsRow.push(items[i + 1]);
-                    i += 2;
-                } else {
-                    i++;
-                }
-                rows.push(twoThirdsRow);
-                continue;
-            }
-
-            if (current.isThird) {
-                // Third width - group up to 3
-                const thirdRow = [current];
+            // For any explicit fractional layout, group by total width
+            if (hasExplicitLayout(current) && !current.isFull) {
+                const row = [current];
+                let totalWidth = getLayoutWidth(current);
                 let j = i + 1;
-                while (j < items.length && thirdRow.length < 3) {
-                    thirdRow.push(items[j]);
-                    j++;
-                }
-                rows.push(thirdRow);
-                i = j;
-                continue;
-            }
 
-            if (current.isQuarter) {
-                // Quarter width - group up to 4
-                const quarterRow = [current];
-                let j = i + 1;
-                while (j < items.length && quarterRow.length < 4) {
-                    quarterRow.push(items[j]);
-                    j++;
+                // Keep adding items until we reach ~100% width
+                while (j < items.length && totalWidth < 0.99) {
+                    const nextItem = items[j];
+                    const nextWidth = hasExplicitLayout(nextItem) ? getLayoutWidth(nextItem) : 0;
+
+                    // If next item is auto, use remaining space logic
+                    if (!hasExplicitLayout(nextItem)) {
+                        // Auto items fill remaining space, so add it and stop
+                        row.push(nextItem);
+                        j++;
+                        break;
+                    }
+
+                    // Check if adding this item would exceed 100%
+                    if (totalWidth + nextWidth <= 1.01) {
+                        row.push(nextItem);
+                        totalWidth += nextWidth;
+                        j++;
+                    } else {
+                        // Would exceed, stop here
+                        break;
+                    }
                 }
-                rows.push(quarterRow);
+
+                rows.push(row);
                 i = j;
                 continue;
             }

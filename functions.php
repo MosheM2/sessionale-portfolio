@@ -1992,16 +1992,43 @@ function sessionale_render_gallery($gallery, $description = "") {
                 intval($height)
             );
         } elseif ($type === "video") {
-            echo sprintf(
-                "<figure class=\"wp-block-video %s%s\" data-layout=\"%s\"><video controls src=\"%s\"></video></figure>\n",
-                esc_attr($aspect_class),
-                esc_attr($layout_class),
-                esc_attr($layout),
-                esc_url($url)
-            );
+            // Check if this is an Adobe embed URL or a local video
+            if (strpos($url, 'adobe.io') !== false || strpos($url, 'ccv.adobe') !== false) {
+                // Adobe embed - use iframe
+                echo sprintf(
+                    "<figure class=\"wp-block-video %s%s\" data-layout=\"%s\"><div class=\"video-embed-container\" style=\"position:relative;padding-bottom:56.25%%;height:0;overflow:hidden;\"><iframe src=\"%s\" style=\"position:absolute;top:0;left:0;width:100%%;height:100%%;border:0;\" allowfullscreen></iframe></div></figure>\n",
+                    esc_attr($aspect_class),
+                    esc_attr($layout_class),
+                    esc_attr($layout),
+                    esc_url($url)
+                );
+            } else {
+                // Local video file
+                echo sprintf(
+                    "<figure class=\"wp-block-video %s%s\" data-layout=\"%s\"><video controls src=\"%s\"></video></figure>\n",
+                    esc_attr($aspect_class),
+                    esc_attr($layout_class),
+                    esc_attr($layout),
+                    esc_url($url)
+                );
+            }
         } elseif ($type === "embed") {
-            // For embeds, output the URL and let WordPress oEmbed handle it
-            echo "\n" . esc_url($url) . "\n";
+            // For YouTube/Vimeo embeds, convert to proper watch URLs for oEmbed
+            $embed_url = $url;
+
+            // Convert YouTube embed URL to watch URL
+            if (preg_match('/youtube\.com\/embed\/([^?\s&]+)/', $url, $matches)) {
+                $embed_url = 'https://www.youtube.com/watch?v=' . $matches[1];
+            }
+            // Convert Vimeo embed URL to regular URL
+            elseif (preg_match('/player\.vimeo\.com\/video\/(\d+)/', $url, $matches)) {
+                $embed_url = 'https://vimeo.com/' . $matches[1];
+            }
+
+            // Output as figure with responsive container
+            echo "<figure class=\"wp-block-embed" . esc_attr($layout_class) . "\" data-layout=\"" . esc_attr($layout) . "\">\n";
+            echo wp_oembed_get($embed_url);
+            echo "\n</figure>\n";
         }
     }
 }
