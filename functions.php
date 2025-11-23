@@ -16,6 +16,10 @@ require_once get_template_directory() . '/inc/class-portfolio-import.php';
 // Load the portfolio gallery meta box
 require_once get_template_directory() . '/inc/class-portfolio-gallery.php';
 
+// Load TGM Plugin Activation
+require_once get_template_directory() . '/inc/class-tgm-plugin-activation.php';
+require_once get_template_directory() . '/inc/tgmpa-register.php';
+
 /**
  * Theme Setup
  */
