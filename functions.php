@@ -52,6 +52,8 @@ function sessionale_create_legal_pages() {
         return;
     }
 
+    $page_ids = array();
+
     // Datenschutz (Privacy Policy) page
     $datenschutz_exists = get_page_by_path('datenschutz');
     if (!$datenschutz_exists) {
@@ -111,7 +113,7 @@ function sessionale_create_legal_pages() {
 <p><strong>Hinweis:</strong> Dies ist eine Muster-Datenschutzerklärung. Bitte passen Sie diese an Ihre spezifischen Anforderungen an und lassen Sie sie von einem Rechtsanwalt oder Datenschutzbeauftragten prüfen.</p>
 <!-- /wp:paragraph -->';
 
-        wp_insert_post(array(
+        $page_ids['datenschutz'] = wp_insert_post(array(
             'post_title'    => 'Datenschutz',
             'post_content'  => $datenschutz_content,
             'post_status'   => 'publish',
@@ -120,6 +122,8 @@ function sessionale_create_legal_pages() {
             'comment_status' => 'closed',
             'ping_status'   => 'closed',
         ));
+    } else {
+        $page_ids['datenschutz'] = $datenschutz_exists->ID;
     }
 
     // Impressum page
@@ -173,7 +177,7 @@ function sessionale_create_legal_pages() {
 <p><strong>Hinweis:</strong> Bitte ergänzen Sie alle Platzhalter mit Ihren korrekten Angaben. Das Impressum muss den gesetzlichen Anforderungen entsprechen.</p>
 <!-- /wp:paragraph -->';
 
-        wp_insert_post(array(
+        $page_ids['impressum'] = wp_insert_post(array(
             'post_title'    => 'Impressum',
             'post_content'  => $impressum_content,
             'post_status'   => 'publish',
@@ -182,6 +186,45 @@ function sessionale_create_legal_pages() {
             'comment_status' => 'closed',
             'ping_status'   => 'closed',
         ));
+    } else {
+        $page_ids['impressum'] = $impressum_exists->ID;
+    }
+
+    // Create footer menu with legal pages
+    $menu_name = 'Legal Pages';
+    $menu_exists = wp_get_nav_menu_object($menu_name);
+
+    if (!$menu_exists) {
+        $menu_id = wp_create_nav_menu($menu_name);
+
+        // Add Impressum to menu
+        if (isset($page_ids['impressum'])) {
+            wp_update_nav_menu_item($menu_id, 0, array(
+                'menu-item-title'     => __('Impressum', 'sessionale-portfolio'),
+                'menu-item-object'    => 'page',
+                'menu-item-object-id' => $page_ids['impressum'],
+                'menu-item-type'      => 'post_type',
+                'menu-item-status'    => 'publish',
+                'menu-item-position'  => 1
+            ));
+        }
+
+        // Add Datenschutz to menu
+        if (isset($page_ids['datenschutz'])) {
+            wp_update_nav_menu_item($menu_id, 0, array(
+                'menu-item-title'     => __('Datenschutz', 'sessionale-portfolio'),
+                'menu-item-object'    => 'page',
+                'menu-item-object-id' => $page_ids['datenschutz'],
+                'menu-item-type'      => 'post_type',
+                'menu-item-status'    => 'publish',
+                'menu-item-position'  => 2
+            ));
+        }
+
+        // Assign menu to footer location
+        $locations = get_theme_mod('nav_menu_locations');
+        $locations['footer'] = $menu_id;
+        set_theme_mod('nav_menu_locations', $locations);
     }
 
     // Mark as created

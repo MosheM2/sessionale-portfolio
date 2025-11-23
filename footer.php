@@ -37,6 +37,20 @@ $social_icons = array(
             </div>
         <?php endif; ?>
 
+        <?php
+        // Display footer menu if it exists
+        if (has_nav_menu('footer')) :
+            wp_nav_menu(array(
+                'theme_location' => 'footer',
+                'container'      => 'nav',
+                'container_class' => 'footer-menu',
+                'menu_class'     => 'footer-menu-list',
+                'depth'          => 1,
+                'fallback_cb'    => false,
+            ));
+        endif;
+        ?>
+
         <p class="footer-text">
             &copy; <?php echo date('Y'); ?> <?php bloginfo('name'); ?>
         </p>
