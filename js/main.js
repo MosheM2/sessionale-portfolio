@@ -8,6 +8,26 @@
     'use strict';
 
     /**
+     * Header scroll effect - add background on scroll
+     */
+    function initHeaderScroll() {
+        var header = document.querySelector('.site-header');
+
+        if (header) {
+            var handleScroll = function() {
+                if (window.scrollY > 10) {
+                    header.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                }
+            };
+
+            window.addEventListener('scroll', handleScroll, { passive: true });
+            handleScroll();
+        }
+    }
+
+    /**
      * Detect aspect ratio and apply classes for auto-layout
      */
     function detectAspectRatios() {
@@ -150,12 +170,6 @@
         });
     });
 
-    // Mobile menu toggle (if needed in future)
-    $('.menu-toggle').on('click', function() {
-        $(this).toggleClass('active');
-        $('.main-navigation').toggleClass('active');
-    });
-
     /**
      * Check if all media is landscape and switch to single column if so
      */
@@ -182,8 +196,9 @@
         }
     }
 
-    // Initialize aspect ratio detection on document ready
+    // Initialize on document ready
     $(document).ready(function() {
+        initHeaderScroll();
         detectAspectRatios();
         // Check grid optimization after a delay to allow classes to be applied
         setTimeout(optimizeGridLayout, 100);
