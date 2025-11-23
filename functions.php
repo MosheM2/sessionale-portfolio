@@ -43,6 +43,152 @@ function portfolio_migration_setup() {
 add_action('after_setup_theme', 'portfolio_migration_setup');
 
 /**
+ * Create required legal pages on theme activation
+ */
+function sessionale_create_legal_pages() {
+    // Check if pages were already created
+    if (get_option('sessionale_legal_pages_created')) {
+        return;
+    }
+
+    // Datenschutz (Privacy Policy) page
+    $datenschutz_exists = get_page_by_path('datenschutz');
+    if (!$datenschutz_exists) {
+        $datenschutz_content = '<!-- wp:heading -->
+<h2>1. Datenschutz auf einen Blick</h2>
+<!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} -->
+<h3>Allgemeine Hinweise</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Die folgenden Hinweise geben einen einfachen Überblick darüber, was mit Ihren personenbezogenen Daten passiert, wenn Sie diese Website besuchen. Personenbezogene Daten sind alle Daten, mit denen Sie persönlich identifiziert werden können.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3>Datenerfassung auf dieser Website</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>Wer ist verantwortlich für die Datenerfassung auf dieser Website?</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Die Datenverarbeitung auf dieser Website erfolgt durch den Websitebetreiber. Dessen Kontaktdaten können Sie dem Impressum dieser Website entnehmen.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><strong>Wie erfassen wir Ihre Daten?</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Ihre Daten werden zum einen dadurch erhoben, dass Sie uns diese mitteilen. Hierbei kann es sich z.B. um Daten handeln, die Sie in ein Kontaktformular eingeben.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Andere Daten werden automatisch oder nach Ihrer Einwilligung beim Besuch der Website durch unsere IT-Systeme erfasst. Das sind vor allem technische Daten (z.B. Internetbrowser, Betriebssystem oder Uhrzeit des Seitenaufrufs).</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading -->
+<h2>2. Hosting</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Wir hosten die Inhalte unserer Website bei folgendem Anbieter:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><em>[Bitte ergänzen Sie hier die Informationen zu Ihrem Hosting-Anbieter]</em></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading -->
+<h2>3. Allgemeine Hinweise und Pflichtinformationen</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>Hinweis:</strong> Dies ist eine Muster-Datenschutzerklärung. Bitte passen Sie diese an Ihre spezifischen Anforderungen an und lassen Sie sie von einem Rechtsanwalt oder Datenschutzbeauftragten prüfen.</p>
+<!-- /wp:paragraph -->';
+
+        wp_insert_post(array(
+            'post_title'    => 'Datenschutz',
+            'post_content'  => $datenschutz_content,
+            'post_status'   => 'publish',
+            'post_type'     => 'page',
+            'post_name'     => 'datenschutz',
+            'comment_status' => 'closed',
+            'ping_status'   => 'closed',
+        ));
+    }
+
+    // Impressum page
+    $impressum_exists = get_page_by_path('impressum');
+    if (!$impressum_exists) {
+        $impressum_content = '<!-- wp:heading -->
+<h2>Angaben gemäß § 5 TMG</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>[Ihr vollständiger Name oder Firmenname]<br>[Ihre Adresse]<br>[PLZ und Ort]</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading -->
+<h2>Kontakt</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Telefon: [Ihre Telefonnummer]<br>E-Mail: [Ihre E-Mail-Adresse]</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading -->
+<h2>Umsatzsteuer-ID</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Umsatzsteuer-Identifikationsnummer gemäß § 27 a Umsatzsteuergesetz:<br>[Ihre USt-IdNr.]</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading -->
+<h2>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>[Ihr vollständiger Name]<br>[Ihre Adresse]<br>[PLZ und Ort]</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading -->
+<h2>Haftungsausschluss</h2>
+<!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} -->
+<h3>Haftung für Inhalte</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Die Inhalte unserer Seiten wurden mit größter Sorgfalt erstellt. Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte können wir jedoch keine Gewähr übernehmen.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><strong>Hinweis:</strong> Bitte ergänzen Sie alle Platzhalter mit Ihren korrekten Angaben. Das Impressum muss den gesetzlichen Anforderungen entsprechen.</p>
+<!-- /wp:paragraph -->';
+
+        wp_insert_post(array(
+            'post_title'    => 'Impressum',
+            'post_content'  => $impressum_content,
+            'post_status'   => 'publish',
+            'post_type'     => 'page',
+            'post_name'     => 'impressum',
+            'comment_status' => 'closed',
+            'ping_status'   => 'closed',
+        ));
+    }
+
+    // Mark as created
+    update_option('sessionale_legal_pages_created', true);
+}
+add_action('after_switch_theme', 'sessionale_create_legal_pages');
+
+/**
  * Enqueue Scripts and Styles
  */
 function portfolio_migration_scripts() {
