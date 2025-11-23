@@ -129,11 +129,29 @@ img {
 
 /* Header Styles */
 .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 999;
     padding: 10px 20px;
     text-align: center;
-    border-bottom: 1px solid var(--color-border);
     background-color: var(--color-bg);
-    transition: var(--theme-transition);
+    transition: background-color 0.3s ease;
+}
+
+/* Header background change on scroll */
+.site-header.scrolled {
+    background-color: var(--color-bg-tertiary);
+}
+
+/* Sticky header adjustment for WordPress admin bar */
+.admin-bar .site-header {
+    top: 32px;
+}
+
+@media screen and (max-width: 782px) {
+    .admin-bar .site-header {
+        top: 46px;
+    }
 }
 
 /* Navigation */
@@ -285,11 +303,18 @@ img {
     padding: 40px 20px;
 }
 
+/* Remove padding on mobile and tablet */
+@media (max-width: 1024px) {
+    .site-content {
+        padding: 0;
+    }
+}
+
 /* Portfolio Grid */
 .portfolio-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 30px;
+    gap: 6px;
     margin-bottom: 60px;
 }
 
@@ -866,7 +891,7 @@ img {
     border-top: 1px solid var(--color-border);
     background-color: var(--color-bg);
     transition: var(--theme-transition);
-    margin-top: 80px;
+    margin-top: 0px;
 }
 
 .footer-text {
@@ -908,7 +933,6 @@ img {
 @media (max-width: 768px) {
     .portfolio-grid {
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 20px;
     }
 
     .portfolio-grid.columns-2,
@@ -1229,7 +1253,7 @@ img {
 .page .site-content {
     max-width: 800px;
     margin: 0 auto;
-    padding: 60px 40px;
+    padding: 10px 0px;
 }
 
 .page h1,
