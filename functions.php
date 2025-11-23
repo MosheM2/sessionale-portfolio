@@ -34,6 +34,7 @@ function portfolio_migration_setup() {
     // Register navigation menus
     register_nav_menus(array(
         'primary' => __('Primary Menu', 'sessionale-portfolio'),
+        'footer'  => __('Footer Menu', 'sessionale-portfolio'),
     ));
 
     // Add image sizes

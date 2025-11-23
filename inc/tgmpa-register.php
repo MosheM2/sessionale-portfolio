@@ -17,6 +17,11 @@ function sessionale_register_required_plugins() {
             'slug'     => 'complianz-gdpr',
             'required' => false, // false = "Recommended", true = "Required"
         ),
+        array(
+            'name'     => 'OMGF | GDPR/DSGVO Compliant, Faster Google Fonts. Easy.',
+            'slug'     => 'host-webfonts-local',
+            'required' => false, // false = "Recommended", true = "Required"
+        ),
     );
 
     $config = array(
