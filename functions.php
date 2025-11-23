@@ -1340,7 +1340,9 @@ function sessionale_portfolio_shortcode($atts) {
     ob_start();
     ?>
     <div class="portfolio-grid columns-<?php echo esc_attr($atts['columns']); ?>">
-        <?php while ($query->have_posts()) : $query->the_post(); ?>
+        <?php while ($query->have_posts()) : $query->the_post();
+            $year = get_post_meta(get_the_ID(), 'portfolio_year', true);
+        ?>
             <article class="portfolio-item">
                 <a href="<?php the_permalink(); ?>">
                     <?php if (has_post_thumbnail()) : ?>
@@ -1350,7 +1352,12 @@ function sessionale_portfolio_shortcode($atts) {
                     <?php else : ?>
                         <div class="portfolio-thumbnail portfolio-placeholder"></div>
                     <?php endif; ?>
-                    <h3 class="portfolio-title"><?php the_title(); ?></h3>
+                    <div class="portfolio-overlay">
+                        <h3 class="portfolio-title"><?php the_title(); ?></h3>
+                        <?php if ($year) : ?>
+                            <span class="portfolio-year"><?php echo esc_html($year); ?></span>
+                        <?php endif; ?>
+                    </div>
                 </a>
             </article>
         <?php endwhile; ?>

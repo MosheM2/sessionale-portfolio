@@ -370,11 +370,39 @@ img {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.portfolio-title {
+/* Portfolio Overlay - shows on hover */
+.portfolio-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
     padding: 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.portfolio-item:hover .portfolio-overlay {
+    opacity: 1;
+}
+
+.portfolio-title {
     font-size: 18px;
     font-weight: 500;
     margin: 0;
+    color: #ffffff;
+}
+
+.portfolio-year {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 8px;
 }
 
 .portfolio-item-image {

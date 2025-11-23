@@ -840,8 +840,10 @@ class Portfolio_Import {
      * @param string $portfolio_url The URL of the project page
      * @param string $post_type The post type to create
      * @param string|null $cover_image_url The cover image URL from the main page (for featured image)
+     * @param int|null $category_id The category ID to assign to the post
+     * @param string|null $year The project year from the main page
      */
-    public function import_portfolio_project($portfolio_url, $post_type = 'portfolio', $cover_image_url = null, $category_id = null) {
+    public function import_portfolio_project($portfolio_url, $post_type = 'portfolio', $cover_image_url = null, $category_id = null, $year = null) {
         // Reset time limit for each project import
         @set_time_limit(600);
 
@@ -933,10 +935,16 @@ class Portfolio_Import {
         if ($category_id) {
             wp_set_object_terms($post_id, (int)$category_id, 'portfolio_category');
         }
-        
+
         // Save source URL
         update_post_meta($post_id, '_portfolio_source_url', $portfolio_url);
-        
+
+        // Save year if provided
+        if ($year) {
+            update_post_meta($post_id, 'portfolio_year', $year);
+            $this->log("Saved project year: {$year}");
+        }
+
         // Import images
         $imported_count = 0;
         $content_images = [];
@@ -1093,8 +1101,8 @@ class Portfolio_Import {
     }
     
     /**
-     * Extract project URLs AND their cover images from Adobe Portfolio main page
-     * Returns array of ['url' => project_url, 'cover_image' => cover_image_url]
+     * Extract project URLs, cover images, AND years from Adobe Portfolio main page
+     * Returns array of ['url' => project_url, 'cover_image' => cover_image_url, 'year' => year]
      */
     public function extract_project_urls($html, $base_url) {
         $projects = [];
@@ -1156,6 +1164,14 @@ class Portfolio_Import {
             }
             $seen_urls[] = $project_url;
 
+            // Extract year from link text (format: "Title\n2025" or "Title 2025")
+            $year = null;
+            $link_text = $link->textContent;
+            if (preg_match('/\b(20\d{2})\b/', $link_text, $year_match)) {
+                $year = $year_match[1];
+                $this->log("Found year: {$year}");
+            }
+
             // Extract cover image from within this link
             $cover_image = null;
             $imgs = $xpath->query('.//img', $link);
@@ -1193,10 +1209,14 @@ class Portfolio_Import {
 
             $projects[] = [
                 'url' => $project_url,
-                'cover_image' => $cover_image
+                'cover_image' => $cover_image,
+                'year' => $year
             ];
 
             $this->log("Found project: {$project_url}");
+            if ($year) {
+                $this->log("  Year: {$year}");
+            }
             if ($cover_image) {
                 $this->log("  Cover image: " . basename($cover_image));
             } else {
@@ -1245,7 +1265,7 @@ class Portfolio_Import {
             return ['success' => false, 'message' => 'No content found at the specified URL'];
         }
 
-        // Extract project URLs with their cover images
+        // Extract project URLs with their cover images and years
         $projects = $this->extract_project_urls($body, $portfolio_url);
 
         if (empty($projects)) {
@@ -1257,8 +1277,14 @@ class Portfolio_Import {
         $total = count($projects);
 
         foreach ($projects as $project) {
-            // Pass URL, cover image, and category to the import function
-            $post_id = $this->import_portfolio_project($project['url'], $post_type, $project['cover_image'], $category_id);
+            // Pass URL, cover image, category, and year to the import function
+            $post_id = $this->import_portfolio_project(
+                $project['url'],
+                $post_type,
+                $project['cover_image'],
+                $category_id,
+                $project['year']
+            );
             if ($post_id) {
                 $imported_count++;
             }
