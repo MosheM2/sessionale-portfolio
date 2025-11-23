@@ -240,13 +240,20 @@
                 } catch (e) {}
             }
 
-            // Get URL from media element
+            // Get URL from media element only if not already set from hidden input
             if (type === 'image') {
-                item.url = $item.find('img').attr('src');
-                item.thumb = item.url;
+                if (!item.url) {
+                    item.url = $item.find('img').attr('src');
+                }
+                if (!item.thumb) {
+                    item.thumb = item.url;
+                }
             } else if (type === 'video') {
-                item.url = $item.find('video').attr('src');
+                if (!item.url) {
+                    item.url = $item.find('video').attr('src');
+                }
             }
+            // For embed type, URL should already be preserved from hidden input
 
             galleryData.push(item);
         });

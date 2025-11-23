@@ -91,10 +91,21 @@
                 ratio = width / height;
             }
 
-            // For videos, try to get dimensions or use 16:9 default
+            // For videos, get dimensions from data attributes or video element
             const video = fig.querySelector('video');
-            if (video && video.videoWidth && video.videoHeight) {
-                ratio = video.videoWidth / video.videoHeight;
+            const dataWidth = fig.getAttribute('data-width');
+            const dataHeight = fig.getAttribute('data-height');
+
+            if (dataWidth && dataHeight && parseInt(dataWidth) > 0 && parseInt(dataHeight) > 0) {
+                // Use dimensions from data attributes (most reliable)
+                ratio = parseInt(dataWidth) / parseInt(dataHeight);
+            } else if (video) {
+                // Try video element dimensions
+                if (video.videoWidth && video.videoHeight) {
+                    ratio = video.videoWidth / video.videoHeight;
+                } else if (video.width && video.height) {
+                    ratio = video.width / video.height;
+                }
             }
 
             // Get layout preference from data attribute
@@ -183,10 +194,25 @@
                 video.style.objectFit = 'cover';
             }
             if (embedContainer) {
+                // For embeds, use aspect-ratio on the figure based on actual dimensions
+                const dataWidth = item.element.getAttribute('data-width');
+                const dataHeight = item.element.getAttribute('data-height');
+                if (dataWidth && dataHeight && parseInt(dataWidth) > 0 && parseInt(dataHeight) > 0) {
+                    item.element.style.aspectRatio = `${dataWidth} / ${dataHeight}`;
+                } else {
+                    item.element.style.aspectRatio = '16 / 9';
+                }
                 embedContainer.style.width = '100%';
                 embedContainer.style.height = '100%';
                 embedContainer.style.paddingBottom = '0';
                 embedContainer.style.position = 'relative';
+                if (iframe) {
+                    iframe.style.position = 'absolute';
+                    iframe.style.top = '0';
+                    iframe.style.left = '0';
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                }
             }
             if (iframe && !embedContainer) {
                 iframe.style.width = '100%';

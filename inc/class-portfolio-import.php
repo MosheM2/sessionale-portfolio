@@ -1036,17 +1036,41 @@ class Portfolio_Import {
             }
         }
 
-        // Add videos to gallery
+        // Add videos to gallery - download Adobe videos to WordPress
         foreach ($videos as $video_url) {
             if (strpos($video_url, 'adobe.io') !== false) {
-                // Local video - find the attachment
-                $gallery_items[] = [
-                    'type' => 'video',
-                    'url' => $video_url,
-                    'layout' => 'auto'
-                ];
+                // Adobe video - download to WordPress media library
+                $this->log("Downloading Adobe video: {$video_url}");
+                $video_attachment_id = $this->download_adobe_video($video_url, $post_id, $title);
+
+                if ($video_attachment_id) {
+                    // Get video URL and metadata from WordPress
+                    $wp_video_url = wp_get_attachment_url($video_attachment_id);
+                    $video_meta = wp_get_attachment_metadata($video_attachment_id);
+
+                    $video_width = isset($video_meta['width']) ? $video_meta['width'] : 1920;
+                    $video_height = isset($video_meta['height']) ? $video_meta['height'] : 1080;
+
+                    $gallery_items[] = [
+                        'type' => 'video',
+                        'attachment_id' => $video_attachment_id,
+                        'url' => $wp_video_url,
+                        'width' => $video_width,
+                        'height' => $video_height,
+                        'layout' => 'auto'
+                    ];
+                    $this->log("Video downloaded successfully (ID: {$video_attachment_id}, {$video_width}x{$video_height})");
+                } else {
+                    // Fallback to embed URL if download fails
+                    $this->log("Video download failed, using embed URL as fallback", 'warning');
+                    $gallery_items[] = [
+                        'type' => 'video',
+                        'url' => $video_url,
+                        'layout' => 'auto'
+                    ];
+                }
             } else {
-                // Embed video
+                // External embed (YouTube/Vimeo)
                 $gallery_items[] = [
                     'type' => 'embed',
                     'url' => $video_url,

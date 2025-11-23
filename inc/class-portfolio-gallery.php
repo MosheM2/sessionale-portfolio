@@ -265,7 +265,17 @@ class Portfolio_Gallery {
         ?>
         <div class="portfolio-gallery-item" data-index="<?php echo $index; ?>" data-type="<?php echo esc_attr($type); ?>" data-layout="<?php echo esc_attr($layout); ?>">
             <?php if ($type === 'video') : ?>
-                <video src="<?php echo esc_url($url); ?>" muted></video>
+                <?php
+                // Check if this is an Adobe embed URL (won't play in video element) or local WordPress video
+                $is_adobe_embed = (strpos($url, 'adobe.io') !== false || strpos($url, 'ccv.adobe') !== false);
+                if ($is_adobe_embed) : ?>
+                    <div style="height:120px;background:#333;display:flex;align-items:center;justify-content:center;color:#fff;flex-direction:column;">
+                        <span class="dashicons dashicons-video-alt3" style="font-size:40px;"></span>
+                        <small style="margin-top:5px;opacity:0.7;">Adobe Video (needs re-import)</small>
+                    </div>
+                <?php else : ?>
+                    <video src="<?php echo esc_url($url); ?>" muted></video>
+                <?php endif; ?>
             <?php elseif ($type === 'embed') : ?>
                 <div style="height:120px;background:#000;display:flex;align-items:center;justify-content:center;color:#fff;">
                     <span class="dashicons dashicons-video-alt3" style="font-size:40px;"></span>

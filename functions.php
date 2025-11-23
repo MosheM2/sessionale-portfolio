@@ -1992,24 +1992,36 @@ function sessionale_render_gallery($gallery, $description = "") {
                 intval($height)
             );
         } elseif ($type === "video") {
-            // Check if this is an Adobe embed URL or a local video
+            // Check if this is an Adobe embed URL (fallback) or a WordPress video
             if (strpos($url, 'adobe.io') !== false || strpos($url, 'ccv.adobe') !== false) {
-                // Adobe embed - use iframe
+                // Adobe embed fallback - use iframe (only if video download failed)
+                // Calculate padding-bottom based on aspect ratio (default 16:9 = 56.25%)
+                $padding_percent = 56.25;
+                if ($width > 0 && $height > 0) {
+                    $padding_percent = ($height / $width) * 100;
+                }
                 echo sprintf(
-                    "<figure class=\"wp-block-video %s%s\" data-layout=\"%s\"><div class=\"video-embed-container\" style=\"position:relative;padding-bottom:56.25%%;height:0;overflow:hidden;\"><iframe src=\"%s\" style=\"position:absolute;top:0;left:0;width:100%%;height:100%%;border:0;\" allowfullscreen></iframe></div></figure>\n",
+                    "<figure class=\"wp-block-video %s%s\" data-layout=\"%s\" data-width=\"%d\" data-height=\"%d\"><div class=\"video-embed-container\" style=\"position:relative;padding-bottom:%.2f%%;height:0;overflow:hidden;\"><iframe src=\"%s\" style=\"position:absolute;top:0;left:0;width:100%%;height:100%%;border:0;\" allowfullscreen></iframe></div></figure>\n",
                     esc_attr($aspect_class),
                     esc_attr($layout_class),
                     esc_attr($layout),
+                    intval($width),
+                    intval($height),
+                    $padding_percent,
                     esc_url($url)
                 );
             } else {
-                // Local video file
+                // WordPress video file - render with proper dimensions
                 echo sprintf(
-                    "<figure class=\"wp-block-video %s%s\" data-layout=\"%s\"><video controls src=\"%s\"></video></figure>\n",
+                    "<figure class=\"wp-block-video %s%s\" data-layout=\"%s\" data-width=\"%d\" data-height=\"%d\"><video controls src=\"%s\" width=\"%d\" height=\"%d\" preload=\"metadata\"></video></figure>\n",
                     esc_attr($aspect_class),
                     esc_attr($layout_class),
                     esc_attr($layout),
-                    esc_url($url)
+                    intval($width),
+                    intval($height),
+                    esc_url($url),
+                    intval($width),
+                    intval($height)
                 );
             }
         } elseif ($type === "embed") {
