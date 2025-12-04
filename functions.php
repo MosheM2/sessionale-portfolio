@@ -44,6 +44,20 @@ function portfolio_migration_setup() {
 add_action('after_setup_theme', 'portfolio_migration_setup');
 
 /**
+ * Set permalink structure to "Post name" on theme activation
+ */
+function sessionale_set_permalinks() {
+    global $wp_rewrite;
+    
+    // Set permalink structure to post name (/%postname%/)
+    $wp_rewrite->set_permalink_structure('/%postname%/');
+    
+    // Flush rewrite rules
+    $wp_rewrite->flush_rules();
+}
+add_action('after_switch_theme', 'sessionale_set_permalinks');
+
+/**
  * Create required legal pages on theme activation
  */
 function sessionale_create_legal_pages() {
