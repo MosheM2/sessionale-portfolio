@@ -928,6 +928,38 @@ img {
     margin-top: 20px;
 }
 
+/* Footer Menu */
+.footer-menu {
+    margin: 20px 0;
+}
+
+.footer-menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.footer-menu-list li {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.footer-menu-list a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s ease;
+}
+
+.footer-menu-list a:hover {
+    color: var(--color-text);
+}
+
 /* Import Notice */
 .import-notice {
     background-color: #f0f9ff;
