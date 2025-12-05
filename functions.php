@@ -2050,9 +2050,11 @@ function sessionale_handle_contact_submission() {
         $message
     );
 
+    // Use site domain for From (prevents spoofing rejection), visitor email in Reply-To
+    $site_host = wp_parse_url(home_url(), PHP_URL_HOST);
     $headers = array(
-        'From: ' . $name . ' <' . $email . '>',
-        'Reply-To: ' . $email
+        'From: ' . get_bloginfo('name') . ' <noreply@' . $site_host . '>',
+        'Reply-To: ' . $name . ' <' . $email . '>'
     );
 
     $mail_sent = wp_mail($to_email, $subject, $body, $headers);
