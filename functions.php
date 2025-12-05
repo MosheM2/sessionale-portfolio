@@ -2041,33 +2041,49 @@ function sessionale_handle_contact_submission() {
     $email = sanitize_email($_POST['contact_email']);
     $message = sanitize_textarea_field($_POST['contact_message']);
 
-    $subject = sprintf(__('New Contact Form Message from %s', 'sessionale-portfolio'), $name);
+    // Setup From address using site domain
+    $site_host = wp_parse_url(home_url(), PHP_URL_HOST);
+    $site_name = get_bloginfo('name');
+    $from_address = 'noreply@' . $site_host;
 
-    $body = sprintf(
+    // Email to site owner
+    $owner_subject = sprintf(__('New Contact Form Message from %s', 'sessionale-portfolio'), $name);
+    $owner_body = sprintf(
         __("Name: %s\nEmail: %s\n\nMessage:\n%s", 'sessionale-portfolio'),
         $name,
         $email,
         $message
     );
-
-    // Use site domain for From (prevents spoofing rejection), visitor email in Reply-To
-    $site_host = wp_parse_url(home_url(), PHP_URL_HOST);
-    $headers = array(
-        'From: ' . get_bloginfo('name') . ' <noreply@' . $site_host . '>',
+    $owner_headers = array(
+        'From: ' . $site_name . ' <' . $from_address . '>',
         'Reply-To: ' . $name . ' <' . $email . '>'
     );
 
-    $mail_sent = wp_mail($to_email, $subject, $body, $headers);
+    // Email copy to visitor
+    $visitor_subject = sprintf(__('Copy of your message to %s', 'sessionale-portfolio'), $site_name);
+    $visitor_body = sprintf(
+        __("Thank you for contacting us. Here is a copy of your message:\n\n---\n\nName: %s\nEmail: %s\n\nMessage:\n%s\n\n---\n\nWe will get back to you soon.", 'sessionale-portfolio'),
+        $name,
+        $email,
+        $message
+    );
+    $visitor_headers = array(
+        'From: ' . $site_name . ' <' . $from_address . '>'
+    );
+
+    // Send both emails
+    $owner_mail_sent = wp_mail($to_email, $owner_subject, $owner_body, $owner_headers);
+    $visitor_mail_sent = wp_mail($email, $visitor_subject, $visitor_body, $visitor_headers);
 
     // Log email attempt details for debugging
-    error_log('Contact form email attempt - To: ' . $to_email . ', From: noreply@' . $site_host . ', Result: ' . ($mail_sent ? 'success' : 'failed'));
+    error_log('Contact form - Owner email to: ' . $to_email . ', Result: ' . ($owner_mail_sent ? 'success' : 'failed'));
+    error_log('Contact form - Visitor copy to: ' . $email . ', Result: ' . ($visitor_mail_sent ? 'success' : 'failed'));
 
     // Redirect back to contact page with appropriate message
-    if ($mail_sent) {
+    if ($owner_mail_sent) {
         $redirect_url = add_query_arg('contact', 'success', wp_get_referer());
     } else {
-        // Log the error for debugging
-        error_log('Contact form email failed to send. To: ' . $to_email . ', From: ' . $email);
+        error_log('Contact form email failed to send. To: ' . $to_email);
         $redirect_url = add_query_arg('contact', 'error', wp_get_referer());
     }
     wp_redirect($redirect_url);
