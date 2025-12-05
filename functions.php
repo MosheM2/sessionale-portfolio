@@ -2075,15 +2075,10 @@ function sessionale_handle_contact_submission() {
     $owner_mail_sent = wp_mail($to_email, $owner_subject, $owner_body, $owner_headers);
     $visitor_mail_sent = wp_mail($email, $visitor_subject, $visitor_body, $visitor_headers);
 
-    // Log email attempt details for debugging
-    error_log('Contact form - Owner email to: ' . $to_email . ', Result: ' . ($owner_mail_sent ? 'success' : 'failed'));
-    error_log('Contact form - Visitor copy to: ' . $email . ', Result: ' . ($visitor_mail_sent ? 'success' : 'failed'));
-
     // Redirect back to contact page with appropriate message
     if ($owner_mail_sent) {
         $redirect_url = add_query_arg('contact', 'success', wp_get_referer());
     } else {
-        error_log('Contact form email failed to send. To: ' . $to_email);
         $redirect_url = add_query_arg('contact', 'error', wp_get_referer());
     }
     wp_redirect($redirect_url);
@@ -2091,14 +2086,6 @@ function sessionale_handle_contact_submission() {
 }
 add_action('admin_post_sessionale_contact_submit', 'sessionale_handle_contact_submission');
 add_action('admin_post_nopriv_sessionale_contact_submit', 'sessionale_handle_contact_submission');
-
-/**
- * Log wp_mail errors for debugging
- */
-add_action('wp_mail_failed', function($wp_error) {
-    error_log('wp_mail_failed: ' . $wp_error->get_error_message());
-    error_log('wp_mail_failed data: ' . print_r($wp_error->get_error_data(), true));
-});
 
 /**
  * Add custom fields to portfolio edit screen
