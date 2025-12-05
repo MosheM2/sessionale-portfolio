@@ -58,6 +58,19 @@ function sessionale_set_permalinks() {
 add_action('after_switch_theme', 'sessionale_set_permalinks');
 
 /**
+ * Sort portfolio posts by menu_order on archive pages
+ */
+function sessionale_portfolio_order($query) {
+    if (!is_admin() && $query->is_main_query()) {
+        if (is_post_type_archive('portfolio') || is_tax('portfolio_category')) {
+            $query->set('orderby', 'menu_order');
+            $query->set('order', 'ASC');
+        }
+    }
+}
+add_action('pre_get_posts', 'sessionale_portfolio_order');
+
+/**
  * Create required legal pages on theme activation
  */
 function sessionale_create_legal_pages() {
@@ -1542,8 +1555,8 @@ function sessionale_portfolio_shortcode($atts) {
     $args = array(
         'post_type' => 'portfolio',
         'posts_per_page' => $atts['limit'],
-        'orderby' => 'date',
-        'order' => 'DESC'
+        'orderby' => 'menu_order',
+        'order' => 'ASC'
     );
 
     // Filter by category if specified

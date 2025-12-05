@@ -30,8 +30,8 @@ get_header(); ?>
         $args = array(
             'post_type'      => 'portfolio',
             'posts_per_page' => -1,
-            'orderby'        => 'date',
-            'order'          => 'DESC'
+            'orderby'        => 'menu_order',
+            'order'          => 'ASC'
         );
         
         $portfolio_query = new WP_Query($args);

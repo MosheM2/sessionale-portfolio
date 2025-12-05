@@ -842,8 +842,9 @@ class Portfolio_Import {
      * @param string|null $cover_image_url The cover image URL from the main page (for featured image)
      * @param int|null $category_id The category ID to assign to the post
      * @param string|null $year The project year from the main page
+     * @param int $menu_order The display order for the project
      */
-    public function import_portfolio_project($portfolio_url, $post_type = 'portfolio', $cover_image_url = null, $category_id = null, $year = null) {
+    public function import_portfolio_project($portfolio_url, $post_type = 'portfolio', $cover_image_url = null, $category_id = null, $year = null, $menu_order = 0) {
         // Reset time limit for each project import
         @set_time_limit(600);
 
@@ -915,6 +916,13 @@ class Portfolio_Import {
                 $this->log("Updated category for existing post {$existing->ID} to category ID {$category_id}");
             }
 
+            // Update menu_order for existing post (ensures correct order on re-import)
+            wp_update_post([
+                'ID' => $existing->ID,
+                'menu_order' => $menu_order
+            ]);
+            $this->log("Updated menu_order for existing post {$existing->ID} to {$menu_order}");
+
             return $existing->ID;
         }
         
@@ -923,7 +931,8 @@ class Portfolio_Import {
             'post_title' => $title,
             'post_type' => $post_type,
             'post_status' => 'publish',
-            'post_name' => $slug
+            'post_name' => $slug,
+            'menu_order' => $menu_order
         ]);
         
         if (is_wp_error($post_id)) {
@@ -1275,19 +1284,22 @@ class Portfolio_Import {
         // Import all projects
         $imported_count = 0;
         $total = count($projects);
+        $menu_order = 0;
 
         foreach ($projects as $project) {
-            // Pass URL, cover image, category, and year to the import function
+            // Pass URL, cover image, category, year, and order to the import function
             $post_id = $this->import_portfolio_project(
                 $project['url'],
                 $post_type,
                 $project['cover_image'],
                 $category_id,
-                $project['year']
+                $project['year'],
+                $menu_order
             );
             if ($post_id) {
                 $imported_count++;
             }
+            $menu_order++;
             @set_time_limit(120);
         }
         
