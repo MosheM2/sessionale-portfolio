@@ -755,6 +755,8 @@ function portfolio_migration_import_page() {
     $about_url = isset($saved_settings['about_url']) ? $saved_settings['about_url'] : '';
     $portfolio_sources = isset($saved_settings['portfolio_sources']) ? $saved_settings['portfolio_sources'] : array();
     $social_links = isset($saved_settings['social_links']) ? $saved_settings['social_links'] : array();
+    $recaptcha_site_key = isset($saved_settings['recaptcha_site_key']) ? $saved_settings['recaptcha_site_key'] : '';
+    $recaptcha_secret_key = isset($saved_settings['recaptcha_secret_key']) ? $saved_settings['recaptcha_secret_key'] : '';
     ?>
     <div class="wrap sessionale-wizard">
         <h1><?php _e('Sessionale Portfolio Setup', 'sessionale-portfolio'); ?></h1>
@@ -799,6 +801,20 @@ function portfolio_migration_import_page() {
                     <tr>
                         <th><label for="owner_phone"><?php _e('Phone Number', 'sessionale-portfolio'); ?></label></th>
                         <td><input type="text" name="owner_phone" id="owner_phone" class="regular-text" value="<?php echo esc_attr($owner_phone); ?>"></td>
+                    </tr>
+                </table>
+
+                <h3 style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;"><?php _e('Google reCAPTCHA v3 (Spam Protection)', 'sessionale-portfolio'); ?></h3>
+                <p class="description"><?php _e('Protect your contact form from spam. Get your keys at:', 'sessionale-portfolio'); ?> <a href="https://www.google.com/recaptcha/admin" target="_blank">google.com/recaptcha/admin</a></p>
+                
+                <table class="form-table">
+                    <tr>
+                        <th><label for="recaptcha_site_key"><?php _e('Site Key', 'sessionale-portfolio'); ?></label></th>
+                        <td><input type="text" name="recaptcha_site_key" id="recaptcha_site_key" class="regular-text" value="<?php echo esc_attr($recaptcha_site_key); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th><label for="recaptcha_secret_key"><?php _e('Secret Key', 'sessionale-portfolio'); ?></label></th>
+                        <td><input type="password" name="recaptcha_secret_key" id="recaptcha_secret_key" class="regular-text" value="<?php echo esc_attr($recaptcha_secret_key); ?>"></td>
                     </tr>
                 </table>
             </div>
@@ -1177,7 +1193,9 @@ function sessionale_save_settings() {
         'portfolio_sources' => array(),
         'social_links' => array(),
         'homepage_source' => $homepage_source,
-        'create_contact_page' => !empty($form_data['create_contact_page'])
+        'create_contact_page' => !empty($form_data['create_contact_page']),
+        'recaptcha_site_key' => sanitize_text_field($form_data['recaptcha_site_key'] ?? ''),
+        'recaptcha_secret_key' => sanitize_text_field($form_data['recaptcha_secret_key'] ?? ''),
     );
 
     // Process portfolio sources
@@ -1901,6 +1919,7 @@ function sessionale_extract_social_links($url) {
 function sessionale_contact_form_shortcode() {
     $settings = get_option('sessionale_portfolio_settings', array());
     $success = isset($_GET['contact']) && $_GET['contact'] === 'success';
+    $recaptcha_site_key = isset($settings['recaptcha_site_key']) ? $settings['recaptcha_site_key'] : '';
 
     ob_start();
     ?>
@@ -1910,9 +1929,13 @@ function sessionale_contact_form_shortcode() {
                 <p><?php _e('Thank you for your message! I\'ll get back to you soon.', 'sessionale-portfolio'); ?></p>
             </div>
         <?php else : ?>
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <?php if (!empty($recaptcha_site_key)) : ?>
+                <script src="https://www.google.com/recaptcha/api.js?render=<?php echo esc_attr($recaptcha_site_key); ?>"></script>
+            <?php endif; ?>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" id="sessionale-contact-form">
                 <input type="hidden" name="action" value="sessionale_contact_submit">
                 <?php wp_nonce_field('sessionale_contact_form', 'contact_nonce'); ?>
+                <input type="hidden" name="recaptcha_token" id="recaptcha_token" value="">
 
                 <div class="form-group">
                     <label for="contact_name"><?php _e('Name', 'sessionale-portfolio'); ?> *</label>
@@ -1933,6 +1956,20 @@ function sessionale_contact_form_shortcode() {
                     <button type="submit" class="submit-button"><?php _e('Submit', 'sessionale-portfolio'); ?></button>
                 </div>
             </form>
+            <?php if (!empty($recaptcha_site_key)) : ?>
+            <script>
+                document.getElementById('sessionale-contact-form').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var form = this;
+                    grecaptcha.ready(function() {
+                        grecaptcha.execute('<?php echo esc_js($recaptcha_site_key); ?>', {action: 'contact_form'}).then(function(token) {
+                            document.getElementById('recaptcha_token').value = token;
+                            form.submit();
+                        });
+                    });
+                });
+            </script>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
     <?php
@@ -1949,6 +1986,36 @@ function sessionale_handle_contact_submission() {
     }
 
     $settings = get_option('sessionale_portfolio_settings', array());
+    
+    // Verify reCAPTCHA if configured
+    $recaptcha_secret_key = isset($settings['recaptcha_secret_key']) ? $settings['recaptcha_secret_key'] : '';
+    if (!empty($recaptcha_secret_key)) {
+        $recaptcha_token = isset($_POST['recaptcha_token']) ? sanitize_text_field($_POST['recaptcha_token']) : '';
+        
+        if (empty($recaptcha_token)) {
+            wp_die(__('reCAPTCHA verification failed. Please try again.', 'sessionale-portfolio'));
+        }
+        
+        $recaptcha_response = wp_remote_post('https://www.google.com/recaptcha/api/siteverify', array(
+            'body' => array(
+                'secret' => $recaptcha_secret_key,
+                'response' => $recaptcha_token,
+                'remoteip' => $_SERVER['REMOTE_ADDR']
+            )
+        ));
+        
+        if (is_wp_error($recaptcha_response)) {
+            wp_die(__('reCAPTCHA verification failed. Please try again.', 'sessionale-portfolio'));
+        }
+        
+        $recaptcha_data = json_decode(wp_remote_retrieve_body($recaptcha_response), true);
+        
+        // Check if verification was successful and score is acceptable (0.5 or higher)
+        if (!$recaptcha_data['success'] || (isset($recaptcha_data['score']) && $recaptcha_data['score'] < 0.5)) {
+            wp_die(__('reCAPTCHA verification failed. Your submission appears to be spam.', 'sessionale-portfolio'));
+        }
+    }
+    
     $to_email = !empty($settings['owner_email']) ? $settings['owner_email'] : get_option('admin_email');
 
     $name = sanitize_text_field($_POST['contact_name']);
