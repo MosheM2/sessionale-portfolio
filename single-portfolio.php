@@ -48,7 +48,18 @@ $gallery = get_post_meta(get_the_ID(), '_portfolio_gallery', true);
             <!-- Project Content (images, videos, text) -->
             <div class="project-gallery">
                 <div class="project-content">
-                    <?php sessionale_render_gallery($gallery, $description); ?>
+                    <?php 
+                    // Output the post content (text, credits, buttons)
+                    $content = get_the_content();
+                    if (!empty($content)) {
+                        echo '<div class="portfolio-post-content">';
+                        the_content();
+                        echo '</div>';
+                    }
+                    
+                    // Output the gallery (images and videos)
+                    sessionale_render_gallery($gallery, $description); 
+                    ?>
                 </div>
             </div>
 
