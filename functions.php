@@ -765,6 +765,7 @@ function portfolio_migration_import_page() {
     $owner_name = isset($saved_settings['owner_name']) ? $saved_settings['owner_name'] : '';
     $owner_email = isset($saved_settings['owner_email']) ? $saved_settings['owner_email'] : get_option('admin_email');
     $owner_phone = isset($saved_settings['owner_phone']) ? $saved_settings['owner_phone'] : '';
+    $owner_phone_country = isset($saved_settings['owner_phone_country']) ? $saved_settings['owner_phone_country'] : '+49';
     $about_url = isset($saved_settings['about_url']) ? $saved_settings['about_url'] : '';
     $portfolio_sources = isset($saved_settings['portfolio_sources']) ? $saved_settings['portfolio_sources'] : array();
     $social_links = isset($saved_settings['social_links']) ? $saved_settings['social_links'] : array();
@@ -813,7 +814,24 @@ function portfolio_migration_import_page() {
                     </tr>
                     <tr>
                         <th><label for="owner_phone"><?php _e('Phone Number', 'sessionale-portfolio'); ?></label></th>
-                        <td><input type="text" name="owner_phone" id="owner_phone" class="regular-text" value="<?php echo esc_attr($owner_phone); ?>"></td>
+                        <td>
+                            <select name="owner_phone_country" id="owner_phone_country" style="width: 80px; margin-right: 5px;">
+                                <option value="+49" <?php selected($owner_phone_country, '+49'); ?>>+49</option>
+                                <option value="+43" <?php selected($owner_phone_country, '+43'); ?>>+43</option>
+                                <option value="+41" <?php selected($owner_phone_country, '+41'); ?>>+41</option>
+                                <option value="+1" <?php selected($owner_phone_country, '+1'); ?>>+1</option>
+                                <option value="+44" <?php selected($owner_phone_country, '+44'); ?>>+44</option>
+                                <option value="+33" <?php selected($owner_phone_country, '+33'); ?>>+33</option>
+                                <option value="+39" <?php selected($owner_phone_country, '+39'); ?>>+39</option>
+                                <option value="+34" <?php selected($owner_phone_country, '+34'); ?>>+34</option>
+                                <option value="+31" <?php selected($owner_phone_country, '+31'); ?>>+31</option>
+                                <option value="+48" <?php selected($owner_phone_country, '+48'); ?>>+48</option>
+                                <option value="+380" <?php selected($owner_phone_country, '+380'); ?>>+380</option>
+                                <option value="+7" <?php selected($owner_phone_country, '+7'); ?>>+7</option>
+                            </select>
+                            <input type="tel" name="owner_phone" id="owner_phone" class="regular-text" value="<?php echo esc_attr($owner_phone); ?>" placeholder="123 456789" style="width: calc(100% - 95px);">
+                            <p class="description"><?php _e('Enter phone number without country code (e.g., 123 456789)', 'sessionale-portfolio'); ?></p>
+                        </td>
                     </tr>
                 </table>
 
@@ -1202,6 +1220,7 @@ function sessionale_save_settings() {
         'owner_name' => sanitize_text_field($form_data['owner_name'] ?? ''),
         'owner_email' => sanitize_email($form_data['owner_email'] ?? ''),
         'owner_phone' => sanitize_text_field($form_data['owner_phone'] ?? ''),
+        'owner_phone_country' => sanitize_text_field($form_data['owner_phone_country'] ?? '+49'),
         'about_url' => esc_url_raw($form_data['about_url'] ?? ''),
         'portfolio_sources' => array(),
         'social_links' => array(),
@@ -1419,6 +1438,14 @@ function sessionale_contact_info_shortcode() {
     $name = isset($settings['owner_name']) ? $settings['owner_name'] : '';
     $email = isset($settings['owner_email']) ? $settings['owner_email'] : '';
     $phone = isset($settings['owner_phone']) ? $settings['owner_phone'] : '';
+    $phone_country = isset($settings['owner_phone_country']) ? $settings['owner_phone_country'] : '+49';
+
+    // Build proper tel: link (country code + digits only)
+    $phone_digits = preg_replace('/[^0-9]/', '', $phone);
+    $tel_link = $phone_country . $phone_digits;
+    
+    // Display format: country code + phone as entered
+    $phone_display = $phone_country . ' ' . $phone;
 
     ob_start();
     ?>
@@ -1427,7 +1454,7 @@ function sessionale_contact_info_shortcode() {
             <p class="contact-name"><?php echo esc_html($name); ?></p>
         <?php endif; ?>
         <?php if (!empty($phone)) : ?>
-            <p class="contact-phone"><a href="tel:<?php echo esc_attr(preg_replace('/[^0-9+]/', '', $phone)); ?>"><?php echo esc_html($phone); ?></a></p>
+            <p class="contact-phone"><a href="tel:<?php echo esc_attr($tel_link); ?>"><?php echo esc_html($phone_display); ?></a></p>
         <?php endif; ?>
         <?php if (!empty($email)) : ?>
             <p class="contact-email"><a href="mailto:<?php echo esc_attr($email); ?>"><?php echo esc_html($email); ?></a></p>
