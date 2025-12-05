@@ -729,6 +729,150 @@ class Portfolio_Import {
     }
 
     /**
+     * Extract ALL media (images and videos) in DOM order
+     * This preserves the original order as displayed on Adobe Portfolio
+     */
+    private function extract_media_in_order($html) {
+        $media_items = [];
+        $seen_urls = [];
+        
+        // Parse HTML
+        libxml_use_internal_errors(true);
+        $dom = new DOMDocument();
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+        
+        $xpath = new DOMXPath($dom);
+        
+        // Find all project modules in order - these contain both images and videos
+        // Adobe Portfolio wraps each media item in a project-module div
+        $modules = $xpath->query('//div[contains(@class, "project-module")]');
+        
+        foreach ($modules as $module) {
+            $module_class = $module->getAttribute('class');
+            
+            // Skip navigation/cover sections
+            if (strpos($module_class, 'project-covers') !== false) {
+                continue;
+            }
+            
+            // Check for video iframe in this module
+            $iframes = $xpath->query('.//iframe', $module);
+            foreach ($iframes as $iframe) {
+                $src = $iframe->getAttribute('src');
+                if (empty($src)) {
+                    $src = $iframe->getAttribute('data-src');
+                }
+                
+                if (!empty($src)) {
+                    if (strpos($src, '//') === 0) {
+                        $src = 'https:' . $src;
+                    }
+                    
+                    // Check if it's a video platform
+                    if ((strpos($src, 'vimeo.com') !== false ||
+                        strpos($src, 'youtube.com') !== false ||
+                        strpos($src, 'youtu.be') !== false ||
+                        strpos($src, 'adobe.io') !== false) &&
+                        !in_array($src, $seen_urls)) {
+                        
+                        $seen_urls[] = $src;
+                        $media_items[] = [
+                            'type' => 'video',
+                            'url' => $src
+                        ];
+                        $this->log("Found video in order: {$src}");
+                    }
+                }
+            }
+            
+            // Check for HTML5 video in this module
+            $video_sources = $xpath->query('.//video/source', $module);
+            foreach ($video_sources as $source) {
+                $src = $source->getAttribute('src');
+                if (!empty($src)) {
+                    if (strpos($src, '//') === 0) {
+                        $src = 'https:' . $src;
+                    }
+                    if (!in_array($src, $seen_urls)) {
+                        $seen_urls[] = $src;
+                        $media_items[] = [
+                            'type' => 'video',
+                            'url' => $src
+                        ];
+                        $this->log("Found HTML5 video in order: {$src}");
+                    }
+                }
+            }
+            
+            // Check for images in this module
+            $imgs = $xpath->query('.//img', $module);
+            foreach ($imgs as $img) {
+                $src = '';
+                
+                // Adobe Portfolio uses lazy loading with data-src and data-srcset
+                // ALWAYS check data-srcset first (has all quality options)
+                $srcset = $img->getAttribute('data-srcset');
+                if (!empty($srcset)) {
+                    $largest = $this->get_largest_from_srcset($srcset);
+                    if (!empty($largest)) {
+                        $src = $largest;
+                    }
+                }
+                
+                // If no data-srcset, try regular srcset
+                if (empty($src)) {
+                    $srcset = $img->getAttribute('srcset');
+                    if (!empty($srcset)) {
+                        $largest = $this->get_largest_from_srcset($srcset);
+                        if (!empty($largest)) {
+                            $src = $largest;
+                        }
+                    }
+                }
+                
+                // If no srcset, try data-src
+                if (empty($src)) {
+                    $src = $img->getAttribute('data-src');
+                }
+                
+                // Last resort: use src attribute
+                if (empty($src)) {
+                    $src = $img->getAttribute('src');
+                    if (!empty($src) && strpos($src, 'data:image') === 0) {
+                        $src = '';
+                    }
+                }
+                
+                // Make sure it's a full URL
+                if (!empty($src)) {
+                    if (strpos($src, '//') === 0) {
+                        $src = 'https:' . $src;
+                    } elseif (strpos($src, 'http') !== 0) {
+                        continue;
+                    }
+                    
+                    // Only accept portfolio CDN images and skip duplicates
+                    if ((strpos($src, 'cdn.myportfolio.com') !== false || strpos($src, 'myportfolio.com') !== false) &&
+                        !in_array($src, $seen_urls) &&
+                        !$this->should_skip_image($src, false)) {
+                        
+                        $seen_urls[] = $src;
+                        $media_items[] = [
+                            'type' => 'image',
+                            'url' => $src
+                        ];
+                        $this->log("Found image in order: " . basename($src));
+                    }
+                }
+            }
+        }
+        
+        $this->log("Total media items found in order: " . count($media_items));
+        return $media_items;
+    }
+
+    /**
      * Extract description/credits text from portfolio page HTML
      */
     private function extract_description_from_html($html) {
@@ -890,8 +1034,11 @@ class Portfolio_Import {
         $images = $this->extract_images_from_html($html);
         $videos = $this->extract_videos_from_html($html);
         $button_links = $this->extract_button_links_from_html($html);
+        
+        // Extract media in DOM order (preserves original sequence of images and videos)
+        $media_in_order = $this->extract_media_in_order($html);
 
-        $this->log("Total found for {$portfolio_url} - Images: " . count($images) . ", Videos: " . count($videos) . ", Links: " . count($button_links) . ", Has description: " . (!empty($description) ? 'yes' : 'no'));
+        $this->log("Total found for {$portfolio_url} - Images: " . count($images) . ", Videos: " . count($videos) . ", Links: " . count($button_links) . ", Media in order: " . count($media_in_order) . ", Has description: " . (!empty($description) ? 'yes' : 'no'));
 
         if (empty($images) && empty($videos) && empty($button_links)) {
             $this->log("No content found for {$portfolio_url}", 'warning');
@@ -957,6 +1104,7 @@ class Portfolio_Import {
         // Import images
         $imported_count = 0;
         $content_images = [];
+        $image_url_to_attachment = []; // Map URL to attachment ID for ordered gallery building
         $featured_image_set = false;
 
         // FIRST: Set featured image from cover image (from main page) if provided
@@ -975,11 +1123,13 @@ class Portfolio_Import {
         }
 
         // Import content images (these go in the post body, not as featured)
+        // Build a URL -> attachment_id map for ordered gallery building
         foreach ($images as $index => $image_url) {
             $attachment_id = $this->import_image($image_url, $post_id, $title);
 
             if ($attachment_id) {
                 $content_images[] = $attachment_id;
+                $image_url_to_attachment[$image_url] = $attachment_id;
                 $imported_count++;
             }
         }
@@ -1017,11 +1167,17 @@ class Portfolio_Import {
         // Add button links to content
         $link_count = 0;
         foreach ($button_links as $link) {
+            $content .= "\n\n" . '<!-- wp:buttons -->' . "\n";
+            $content .= '<div class="wp-block-buttons">' . "\n";
+            $content .= '<!-- wp:button {"className":"is-style-outline"} -->' . "\n";
             $content .= sprintf(
-                "\n\n" . '<!-- wp:buttons --><div class="wp-block-buttons"><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="%s" target="_blank" rel="noopener noreferrer">%s</a></div></div><!-- /wp:buttons -->' . "\n\n",
+                '<div class="wp-block-button is-style-outline"><a class="wp-block-button__link wp-element-button" href="%s" target="_blank" rel="noopener noreferrer">%s</a></div>',
                 esc_url($link['url']),
                 esc_html($link['text'])
-            );
+            ) . "\n";
+            $content .= '<!-- /wp:button -->' . "\n";
+            $content .= '</div>' . "\n";
+            $content .= '<!-- /wp:buttons -->' . "\n\n";
             $link_count++;
             $this->log("Added button link to content: {$link['url']}");
         }
@@ -1033,76 +1189,84 @@ class Portfolio_Import {
         ]);
 
         // Build and save gallery meta for the custom gallery system
+        // Use $media_in_order to preserve the original DOM order (images and videos interleaved)
         $gallery_items = [];
+        $video_count = 0;
 
-        // Add images to gallery
-        foreach ($content_images as $attachment_id) {
-            $image_full = wp_get_attachment_image_src($attachment_id, 'full');
-            $image_thumb = wp_get_attachment_image_src($attachment_id, 'medium');
+        foreach ($media_in_order as $media_item) {
+            if ($media_item['type'] === 'image') {
+                // Look up the attachment ID from our URL map
+                $image_url = $media_item['url'];
+                $attachment_id = isset($image_url_to_attachment[$image_url]) ? $image_url_to_attachment[$image_url] : null;
+                
+                if ($attachment_id) {
+                    $image_full = wp_get_attachment_image_src($attachment_id, 'full');
+                    $image_thumb = wp_get_attachment_image_src($attachment_id, 'medium');
 
-            if ($image_full) {
-                $gallery_items[] = [
-                    'type' => 'image',
-                    'attachment_id' => $attachment_id,
-                    'url' => $image_full[0],
-                    'thumb' => $image_thumb ? $image_thumb[0] : $image_full[0],
-                    'width' => $image_full[1],
-                    'height' => $image_full[2],
-                    'layout' => 'auto'
-                ];
-            }
-        }
+                    if ($image_full) {
+                        $gallery_items[] = [
+                            'type' => 'image',
+                            'attachment_id' => $attachment_id,
+                            'url' => $image_full[0],
+                            'thumb' => $image_thumb ? $image_thumb[0] : $image_full[0],
+                            'width' => $image_full[1],
+                            'height' => $image_full[2],
+                            'layout' => 'auto'
+                        ];
+                    }
+                }
+            } elseif ($media_item['type'] === 'video') {
+                $video_url = $media_item['url'];
+                $video_count++;
+                
+                if (strpos($video_url, 'adobe.io') !== false) {
+                    // Adobe video - download to WordPress media library
+                    $this->log("Downloading Adobe video: {$video_url}");
+                    $video_attachment_id = $this->download_adobe_video($video_url, $post_id, $title);
 
-        // Add videos to gallery - download Adobe videos to WordPress
-        foreach ($videos as $video_url) {
-            if (strpos($video_url, 'adobe.io') !== false) {
-                // Adobe video - download to WordPress media library
-                $this->log("Downloading Adobe video: {$video_url}");
-                $video_attachment_id = $this->download_adobe_video($video_url, $post_id, $title);
+                    if ($video_attachment_id) {
+                        // Get video URL and metadata from WordPress
+                        $wp_video_url = wp_get_attachment_url($video_attachment_id);
+                        $video_meta = wp_get_attachment_metadata($video_attachment_id);
 
-                if ($video_attachment_id) {
-                    // Get video URL and metadata from WordPress
-                    $wp_video_url = wp_get_attachment_url($video_attachment_id);
-                    $video_meta = wp_get_attachment_metadata($video_attachment_id);
+                        $video_width = isset($video_meta['width']) ? $video_meta['width'] : 1920;
+                        $video_height = isset($video_meta['height']) ? $video_meta['height'] : 1080;
 
-                    $video_width = isset($video_meta['width']) ? $video_meta['width'] : 1920;
-                    $video_height = isset($video_meta['height']) ? $video_meta['height'] : 1080;
-
-                    $gallery_items[] = [
-                        'type' => 'video',
-                        'attachment_id' => $video_attachment_id,
-                        'url' => $wp_video_url,
-                        'width' => $video_width,
-                        'height' => $video_height,
-                        'layout' => 'auto'
-                    ];
-                    $this->log("Video downloaded successfully (ID: {$video_attachment_id}, {$video_width}x{$video_height})");
+                        $gallery_items[] = [
+                            'type' => 'video',
+                            'attachment_id' => $video_attachment_id,
+                            'url' => $wp_video_url,
+                            'width' => $video_width,
+                            'height' => $video_height,
+                            'layout' => 'auto'
+                        ];
+                        $this->log("Video downloaded successfully (ID: {$video_attachment_id}, {$video_width}x{$video_height})");
+                    } else {
+                        // Fallback to embed URL if download fails
+                        $this->log("Video download failed, using embed URL as fallback", 'warning');
+                        $gallery_items[] = [
+                            'type' => 'video',
+                            'url' => $video_url,
+                            'layout' => 'auto'
+                        ];
+                    }
                 } else {
-                    // Fallback to embed URL if download fails
-                    $this->log("Video download failed, using embed URL as fallback", 'warning');
+                    // External embed (YouTube/Vimeo)
                     $gallery_items[] = [
-                        'type' => 'video',
+                        'type' => 'embed',
                         'url' => $video_url,
                         'layout' => 'auto'
                     ];
                 }
-            } else {
-                // External embed (YouTube/Vimeo)
-                $gallery_items[] = [
-                    'type' => 'embed',
-                    'url' => $video_url,
-                    'layout' => 'auto'
-                ];
             }
         }
 
         // Save gallery meta
         if (!empty($gallery_items)) {
             update_post_meta($post_id, '_portfolio_gallery', $gallery_items);
-            $this->log("Saved gallery meta with " . count($gallery_items) . " items");
+            $this->log("Saved gallery meta with " . count($gallery_items) . " items (in original DOM order)");
         }
 
-        $video_count = count($videos);
         $this->log("Created content for post {$post_id} - Downloaded: {$imported_count} images, {$video_count} videos, {$link_count} links");
         $this->log("Successfully created project \"{$title}\" with {$imported_count} images, {$video_count} videos, and {$link_count} links");
         
