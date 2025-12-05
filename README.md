@@ -54,6 +54,31 @@ If emails land in spam or don't arrive, contact your hosting provider—they can
 
 ---
 
+### Low Spam Score / VPS Hosting Issues
+
+If you're hosting on a VPS where you can't set reverse DNS (rDNS) for your specific domain, emails sent directly from your server may have poor deliverability or high spam scores.
+
+**Solution: Use WP Mail SMTP Plugin**
+
+Install **WP Mail SMTP** (or similar plugins like Post SMTP or FluentSMTP) to route emails through your hosting provider's SMTP server instead of PHP's `mail()` function.
+
+**Setup for Strato hosting:**
+
+| Setting | Value |
+|---------|-------|
+| SMTP Host | `smtp.strato.de` |
+| Port | `465` (SSL) or `587` (TLS) |
+| Encryption | SSL or TLS |
+| Authentication | Yes |
+| Username | Your full email address (e.g., `noreply@yourdomain.com`) |
+| Password | The mailbox password |
+
+**Other hosting providers** will have similar SMTP settings—check their documentation or support.
+
+This ensures emails are sent through properly configured mail servers with correct rDNS, SPF, and DKIM, significantly improving deliverability.
+
+---
+
 ## Server Requirements
 
 The Adobe Portfolio import downloads and processes many images. You may need to increase the following PHP settings in your server configuration (php.ini or hosting panel):
