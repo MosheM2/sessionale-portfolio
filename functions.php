@@ -1932,6 +1932,7 @@ function sessionale_extract_social_links($url) {
 function sessionale_contact_form_shortcode() {
     $settings = get_option('sessionale_portfolio_settings', array());
     $success = isset($_GET['contact']) && $_GET['contact'] === 'success';
+    $error = isset($_GET['contact']) && $_GET['contact'] === 'error';
     $recaptcha_site_key = isset($settings['recaptcha_site_key']) ? $settings['recaptcha_site_key'] : '';
 
     ob_start();
@@ -1942,6 +1943,11 @@ function sessionale_contact_form_shortcode() {
                 <p><?php _e('Thank you for your message! I\'ll get back to you soon.', 'sessionale-portfolio'); ?></p>
             </div>
         <?php else : ?>
+            <?php if ($error) : ?>
+                <div class="contact-error">
+                    <p><?php _e('Sorry, there was a problem sending your message. Please try again later or contact me directly via email.', 'sessionale-portfolio'); ?></p>
+                </div>
+            <?php endif; ?>
             <?php if (!empty($recaptcha_site_key)) : ?>
                 <script src="https://www.google.com/recaptcha/api.js?render=<?php echo esc_attr($recaptcha_site_key); ?>"></script>
             <?php endif; ?>
@@ -2049,10 +2055,16 @@ function sessionale_handle_contact_submission() {
         'Reply-To: ' . $email
     );
 
-    wp_mail($to_email, $subject, $body, $headers);
+    $mail_sent = wp_mail($to_email, $subject, $body, $headers);
 
-    // Redirect back to contact page with success message
-    $redirect_url = add_query_arg('contact', 'success', wp_get_referer());
+    // Redirect back to contact page with appropriate message
+    if ($mail_sent) {
+        $redirect_url = add_query_arg('contact', 'success', wp_get_referer());
+    } else {
+        // Log the error for debugging
+        error_log('Contact form email failed to send. To: ' . $to_email . ', From: ' . $email);
+        $redirect_url = add_query_arg('contact', 'error', wp_get_referer());
+    }
     wp_redirect($redirect_url);
     exit;
 }

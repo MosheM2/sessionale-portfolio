@@ -1192,6 +1192,16 @@ img {
     text-align: center;
 }
 
+.sessionale-contact-form .contact-error {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-error);
+    color: var(--color-error);
+    padding: 20px;
+    border-radius: 4px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
 /* ==========================================================================
    Contact Page Layout
    ========================================================================== */
