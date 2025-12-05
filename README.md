@@ -10,6 +10,49 @@ A WordPress theme for portfolio websites with Adobe Portfolio migration capabili
 - Dark/light theme toggle
 - Mobile-friendly navigation
 - Contact form with Google reCAPTCHA v3 support
+- Automatic email confirmation to visitors
+
+## Contact Form Email Setup
+
+The contact form sends emails using your site's domain (e.g., `noreply@yourdomain.com`). For emails to be delivered reliably:
+
+### Required: Create the noreply mailbox
+
+Create a `noreply@yourdomain.com` email account in your hosting panel:
+
+- **Plesk**: Mail → Mail Accounts → Create
+- **cPanel**: Email Accounts → Create
+
+This mailbox doesn't need to be monitored—it just needs to exist so the server accepts it as a valid sender.
+
+### Contact Form Settings
+
+1. Go to **Sessionale Dashboard** in WordPress admin
+2. Set the **Email Address** field to where you want to receive messages
+3. The visitor will also receive a copy of their message at the email they entered
+
+---
+
+### Troubleshooting: DNS Records (usually not needed)
+
+Most hosting providers automatically configure the correct DNS records for email. Only check this section if emails are not being delivered.
+
+Your domain needs these DNS records for email authentication:
+
+| Record | Purpose |
+|--------|---------|
+| **SPF** | Authorizes your server to send email for your domain |
+| **DKIM** | Adds a digital signature to verify emails are legitimate |
+| **DMARC** | Tells receiving servers how to handle failed authentication |
+
+**How to check/configure:**
+- **Plesk**: Domains → DNS Settings (often auto-configured)
+- **cPanel**: Zone Editor or Email Deliverability
+- Use [MXToolbox](https://mxtoolbox.com/) to test your domain's email configuration
+
+If emails land in spam or don't arrive, contact your hosting provider—they can usually resolve this quickly.
+
+---
 
 ## Server Requirements
 
