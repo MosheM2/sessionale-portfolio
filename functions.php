@@ -806,10 +806,18 @@ function portfolio_migration_import_page() {
                         <td><input type="text" name="owner_name" id="owner_name" class="regular-text" value="<?php echo esc_attr($owner_name); ?>" required></td>
                     </tr>
                     <tr>
-                        <th><label for="owner_email"><?php _e('Email Address', 'sessionale-portfolio'); ?> *</label></th>
+                        <th><label for="owner_email"><?php _e('Email Address (To)', 'sessionale-portfolio'); ?> *</label></th>
                         <td>
                             <input type="email" name="owner_email" id="owner_email" class="regular-text" value="<?php echo esc_attr($owner_email); ?>" required>
                             <p class="description"><?php _e('Contact form submissions will be sent here.', 'sessionale-portfolio'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="from_email"><?php _e('Email Address (From)', 'sessionale-portfolio'); ?></label></th>
+                        <td>
+                            <?php $from_email = isset($saved_settings['from_email']) ? $saved_settings['from_email'] : ''; ?>
+                            <input type="email" name="from_email" id="from_email" class="regular-text" value="<?php echo esc_attr($from_email); ?>" placeholder="noreply@<?php echo esc_attr(wp_parse_url(home_url(), PHP_URL_HOST)); ?>">
+                            <p class="description"><?php _e('Emails will be sent from this address. Leave empty to use noreply@yourdomain.', 'sessionale-portfolio'); ?></p>
                         </td>
                     </tr>
                     <tr>
@@ -1219,6 +1227,7 @@ function sessionale_save_settings() {
     $settings = array(
         'owner_name' => sanitize_text_field($form_data['owner_name'] ?? ''),
         'owner_email' => sanitize_email($form_data['owner_email'] ?? ''),
+        'from_email' => sanitize_email($form_data['from_email'] ?? ''),
         'owner_phone' => sanitize_text_field($form_data['owner_phone'] ?? ''),
         'owner_phone_country' => sanitize_text_field($form_data['owner_phone_country'] ?? '+49'),
         'about_url' => esc_url_raw($form_data['about_url'] ?? ''),
@@ -2068,10 +2077,11 @@ function sessionale_handle_contact_submission() {
     $email = sanitize_email($_POST['contact_email']);
     $message = sanitize_textarea_field($_POST['contact_message']);
 
-    // Setup From address using site domain
+    // Setup From address - use configured email or fallback to noreply@domain
     $site_host = wp_parse_url(home_url(), PHP_URL_HOST);
     $site_name = get_bloginfo('name');
-    $from_address = 'noreply@' . $site_host;
+    $from_email = !empty($settings['from_email']) ? $settings['from_email'] : 'noreply@' . $site_host;
+    $from_address = $from_email;
 
     // Email to site owner
     $owner_subject = sprintf(__('New Contact Form Message from %s', 'sessionale-portfolio'), $name);
