@@ -613,7 +613,7 @@ class Portfolio_Import {
                 'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept' => 'image/webp,image/apng,image/*,*/*;q=0.8',
                 'Accept-Language' => 'en-US,en;q=0.9',
-                'Referer' => 'https://aklimenko.myportfolio.com/',
+                'Referer' => 'https://example.myportfolio.com/',
             );
         }
         return $args;
@@ -1283,7 +1283,7 @@ class Portfolio_Import {
         $title = ucwords(str_replace('-', ' ', $slug)); // Fallback to URL slug
         if (preg_match('/<title>([^<]+)<\/title>/i', $html, $title_match)) {
             $page_title = trim($title_match[1]);
-            // Remove author prefix (e.g., "Anton Klimenko - ")
+            // Remove author prefix (e.g., "Author Name - ")
             if (strpos($page_title, ' - ') !== false) {
                 $parts = explode(' - ', $page_title, 2);
                 if (count($parts) === 2) {
