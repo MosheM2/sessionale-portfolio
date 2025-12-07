@@ -674,6 +674,7 @@ class Portfolio_Import {
      */
     private function extract_videos_from_html($html) {
         $videos = [];
+        $seen_video_ids = [];
         
         // Parse HTML if not already done
         libxml_use_internal_errors(true);
@@ -683,7 +684,7 @@ class Portfolio_Import {
         
         $xpath = new DOMXPath($dom);
         
-        // Look for iframes with video sources
+        // Method 1: Look for iframes with video sources
         $iframes = $xpath->query('//iframe');
         foreach ($iframes as $iframe) {
             $src = $iframe->getAttribute('src');
@@ -704,7 +705,94 @@ class Portfolio_Import {
 
                     if (!in_array($src, $videos)) {
                         $videos[] = $src;
-                        $this->log("Found video {$src}");
+                        $this->log("Found video iframe {$src}");
+                    }
+                }
+            }
+        }
+        
+        // Method 2: Check for data attributes with video URLs
+        $video_containers = $xpath->query('//*[@data-video-url or @data-youtube-id or @data-vimeo-id or @data-embed-url]');
+        foreach ($video_containers as $container) {
+            $video_url = '';
+            
+            $youtube_id = $container->getAttribute('data-youtube-id');
+            if (!empty($youtube_id) && !in_array($youtube_id, $seen_video_ids)) {
+                $video_url = 'https://www.youtube.com/embed/' . $youtube_id;
+                $seen_video_ids[] = $youtube_id;
+            }
+            
+            $vimeo_id = $container->getAttribute('data-vimeo-id');
+            if (empty($video_url) && !empty($vimeo_id) && !in_array($vimeo_id, $seen_video_ids)) {
+                $video_url = 'https://player.vimeo.com/video/' . $vimeo_id;
+                $seen_video_ids[] = $vimeo_id;
+            }
+            
+            $embed_url = $container->getAttribute('data-embed-url');
+            if (empty($video_url) && !empty($embed_url)) {
+                $video_url = $embed_url;
+            }
+            
+            $data_video_url = $container->getAttribute('data-video-url');
+            if (empty($video_url) && !empty($data_video_url)) {
+                $video_url = $data_video_url;
+            }
+            
+            if (!empty($video_url) && !in_array($video_url, $videos)) {
+                if (strpos($video_url, '//') === 0) {
+                    $video_url = 'https:' . $video_url;
+                }
+                $videos[] = $video_url;
+                $this->log("Found video from data attribute {$video_url}");
+            }
+        }
+        
+        // Method 3: Check for YouTube thumbnails
+        $yt_thumbnails = $xpath->query('//img[contains(@src, "ytimg.com") or contains(@src, "img.youtube.com") or contains(@data-src, "ytimg.com") or contains(@data-src, "img.youtube.com")]');
+        foreach ($yt_thumbnails as $yt_thumb) {
+            $thumb_src = $yt_thumb->getAttribute('src');
+            if (empty($thumb_src) || strpos($thumb_src, 'data:') === 0) {
+                $thumb_src = $yt_thumb->getAttribute('data-src');
+            }
+            
+            if (preg_match('/(?:i\.ytimg\.com|img\.youtube\.com)\/vi\/([a-zA-Z0-9_-]+)/', $thumb_src, $matches)) {
+                $video_id = $matches[1];
+                if (!in_array($video_id, $seen_video_ids)) {
+                    $video_url = 'https://www.youtube.com/embed/' . $video_id;
+                    $seen_video_ids[] = $video_id;
+                    if (!in_array($video_url, $videos)) {
+                        $videos[] = $video_url;
+                        $this->log("Found YouTube video from thumbnail {$video_url}");
+                    }
+                }
+            }
+        }
+        
+        // Method 4: Check for links to YouTube/Vimeo
+        $video_links = $xpath->query('//a[contains(@href, "youtube.com/watch") or contains(@href, "youtu.be") or contains(@href, "vimeo.com")]');
+        foreach ($video_links as $link) {
+            $href = $link->getAttribute('href');
+            if (!empty($href)) {
+                if (preg_match('/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/', $href, $matches) ||
+                    preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $href, $matches)) {
+                    $video_id = $matches[1];
+                    if (!in_array($video_id, $seen_video_ids)) {
+                        $video_url = 'https://www.youtube.com/embed/' . $video_id;
+                        $seen_video_ids[] = $video_id;
+                        if (!in_array($video_url, $videos)) {
+                            $videos[] = $video_url;
+                            $this->log("Found YouTube video from link {$video_url}");
+                        }
+                    }
+                } elseif (preg_match('/vimeo\.com\/(\d+)/', $href, $matches)) {
+                    $video_id = $matches[1];
+                    if (!in_array($video_id, $seen_video_ids)) {
+                        $video_url = 'https://player.vimeo.com/video/' . $video_id;
+                        $seen_video_ids[] = $video_id;
+                        if (!in_array($video_url, $videos)) {
+                            $videos[] = $video_url;
+                            $this->log("Found Vimeo video from link {$video_url}");
+                        }
                     }
                 }
             }
@@ -735,6 +823,7 @@ class Portfolio_Import {
     private function extract_media_in_order($html) {
         $media_items = [];
         $seen_urls = [];
+        $seen_video_ids = []; // Track video IDs to avoid duplicates
         
         // Parse HTML
         libxml_use_internal_errors(true);
@@ -756,7 +845,11 @@ class Portfolio_Import {
                 continue;
             }
             
-            // Check for video iframe in this module
+            $found_video_in_module = false;
+            
+            // FIRST: Check for YouTube/Vimeo in various places Adobe Portfolio might put them
+            
+            // Method 1: Check for iframes with video sources
             $iframes = $xpath->query('.//iframe', $module);
             foreach ($iframes as $iframe) {
                 $src = $iframe->getAttribute('src');
@@ -781,7 +874,116 @@ class Portfolio_Import {
                             'type' => 'video',
                             'url' => $src
                         ];
-                        $this->log("Found video in order: {$src}");
+                        $found_video_in_module = true;
+                        $this->log("Found video iframe in order: {$src}");
+                    }
+                }
+            }
+            
+            // Method 2: Check for data attributes that might contain video URLs
+            // Adobe Portfolio uses various data attributes for lazy loading
+            $video_containers = $xpath->query('.//*[@data-video-url or @data-youtube-id or @data-vimeo-id or @data-embed-url]', $module);
+            foreach ($video_containers as $container) {
+                $video_url = '';
+                
+                // Try different data attributes
+                $youtube_id = $container->getAttribute('data-youtube-id');
+                if (!empty($youtube_id) && !in_array($youtube_id, $seen_video_ids)) {
+                    $video_url = 'https://www.youtube.com/embed/' . $youtube_id;
+                    $seen_video_ids[] = $youtube_id;
+                }
+                
+                $vimeo_id = $container->getAttribute('data-vimeo-id');
+                if (empty($video_url) && !empty($vimeo_id) && !in_array($vimeo_id, $seen_video_ids)) {
+                    $video_url = 'https://player.vimeo.com/video/' . $vimeo_id;
+                    $seen_video_ids[] = $vimeo_id;
+                }
+                
+                $embed_url = $container->getAttribute('data-embed-url');
+                if (empty($video_url) && !empty($embed_url)) {
+                    $video_url = $embed_url;
+                }
+                
+                $data_video_url = $container->getAttribute('data-video-url');
+                if (empty($video_url) && !empty($data_video_url)) {
+                    $video_url = $data_video_url;
+                }
+                
+                if (!empty($video_url) && !in_array($video_url, $seen_urls)) {
+                    if (strpos($video_url, '//') === 0) {
+                        $video_url = 'https:' . $video_url;
+                    }
+                    $seen_urls[] = $video_url;
+                    $media_items[] = [
+                        'type' => 'video',
+                        'url' => $video_url
+                    ];
+                    $found_video_in_module = true;
+                    $this->log("Found video from data attribute in order: {$video_url}");
+                }
+            }
+            
+            // Method 3: Check for YouTube thumbnails (i.ytimg.com or img.youtube.com)
+            // These indicate a lazy-loaded YouTube video
+            $yt_thumbnails = $xpath->query('.//img[contains(@src, "ytimg.com") or contains(@src, "img.youtube.com") or contains(@data-src, "ytimg.com") or contains(@data-src, "img.youtube.com")]', $module);
+            foreach ($yt_thumbnails as $yt_thumb) {
+                $thumb_src = $yt_thumb->getAttribute('src');
+                if (empty($thumb_src) || strpos($thumb_src, 'data:') === 0) {
+                    $thumb_src = $yt_thumb->getAttribute('data-src');
+                }
+                
+                // Extract YouTube video ID from thumbnail URL
+                // Format: https://i.ytimg.com/vi/VIDEO_ID/...
+                // or https://img.youtube.com/vi/VIDEO_ID/...
+                if (preg_match('/(?:i\.ytimg\.com|img\.youtube\.com)\/vi\/([a-zA-Z0-9_-]+)/', $thumb_src, $matches)) {
+                    $video_id = $matches[1];
+                    if (!in_array($video_id, $seen_video_ids)) {
+                        $video_url = 'https://www.youtube.com/embed/' . $video_id;
+                        $seen_video_ids[] = $video_id;
+                        $seen_urls[] = $video_url;
+                        $media_items[] = [
+                            'type' => 'video',
+                            'url' => $video_url
+                        ];
+                        $found_video_in_module = true;
+                        $this->log("Found YouTube video from thumbnail in order: {$video_url}");
+                    }
+                }
+            }
+            
+            // Method 4: Check for links to YouTube/Vimeo
+            $video_links = $xpath->query('.//a[contains(@href, "youtube.com/watch") or contains(@href, "youtu.be") or contains(@href, "vimeo.com")]', $module);
+            foreach ($video_links as $link) {
+                $href = $link->getAttribute('href');
+                if (!empty($href) && !in_array($href, $seen_urls)) {
+                    // Convert YouTube watch URL to embed URL
+                    if (preg_match('/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/', $href, $matches) ||
+                        preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $href, $matches)) {
+                        $video_id = $matches[1];
+                        if (!in_array($video_id, $seen_video_ids)) {
+                            $video_url = 'https://www.youtube.com/embed/' . $video_id;
+                            $seen_video_ids[] = $video_id;
+                            $seen_urls[] = $video_url;
+                            $media_items[] = [
+                                'type' => 'video',
+                                'url' => $video_url
+                            ];
+                            $found_video_in_module = true;
+                            $this->log("Found YouTube video from link in order: {$video_url}");
+                        }
+                    } elseif (preg_match('/vimeo\.com\/(\d+)/', $href, $matches)) {
+                        $video_id = $matches[1];
+                        if (!in_array($video_id, $seen_video_ids)) {
+                            $video_url = 'https://player.vimeo.com/video/' . $video_id;
+                            $seen_video_ids[] = $video_id;
+                            $seen_urls[] = $video_url;
+                            $media_items[] = [
+                                'type' => 'video',
+                                'url' => $video_url
+                            ];
+                            $found_video_in_module = true;
+                            $this->log("Found Vimeo video from link in order: {$video_url}");
+                        }
                     }
                 }
             }
@@ -800,14 +1002,27 @@ class Portfolio_Import {
                             'type' => 'video',
                             'url' => $src
                         ];
+                        $found_video_in_module = true;
                         $this->log("Found HTML5 video in order: {$src}");
                     }
                 }
             }
             
-            // Check for images in this module
+            // Check for images in this module (only if no video was found)
+            // This prevents importing YouTube placeholder images as actual images
             $imgs = $xpath->query('.//img', $module);
             foreach ($imgs as $img) {
+                // Skip YouTube thumbnail images - they're placeholders for videos
+                $img_src = $img->getAttribute('src');
+                $img_data_src = $img->getAttribute('data-src');
+                if (strpos($img_src, 'ytimg.com') !== false || 
+                    strpos($img_src, 'img.youtube.com') !== false ||
+                    strpos($img_data_src, 'ytimg.com') !== false || 
+                    strpos($img_data_src, 'img.youtube.com') !== false) {
+                    $this->log("Skipping YouTube thumbnail image in module where video was found");
+                    continue;
+                }
+                
                 $src = '';
                 
                 // Adobe Portfolio uses lazy loading with data-src and data-srcset

@@ -2317,6 +2317,7 @@ function sessionale_render_gallery($gallery, $description = "") {
     foreach ($gallery as $item) {
         $type = isset($item["type"]) ? $item["type"] : "image";
         $url = isset($item["url"]) ? $item["url"] : "";
+        $thumb = isset($item["thumb"]) ? $item["thumb"] : "";
         $layout = isset($item["layout"]) ? $item["layout"] : "auto";
         $width = isset($item["width"]) ? $item["width"] : 0;
         $height = isset($item["height"]) ? $item["height"] : 0;
@@ -2371,9 +2372,38 @@ function sessionale_render_gallery($gallery, $description = "") {
                     esc_url($url)
                 );
             } else {
-                // WordPress video file - render with proper dimensions
+                // WordPress video file - render with proper dimensions and poster
+                $poster_attr = '';
+                
+                // Method 0: Check if thumb was saved in gallery meta (from import)
+                if (!empty($thumb)) {
+                    $poster_attr = ' poster="' . esc_url($thumb) . '"';
+                }
+                
+                // Method 1: Check if WordPress generated a thumbnail (requires FFmpeg)
+                if (empty($poster_attr) && $attachment_id > 0) {
+                    $thumb_id = get_post_thumbnail_id($attachment_id);
+                    if ($thumb_id) {
+                        $thumb_url = wp_get_attachment_image_url($thumb_id, 'large');
+                        if ($thumb_url) {
+                            $poster_attr = ' poster="' . esc_url($thumb_url) . '"';
+                        }
+                    }
+                    
+                    // Method 2: Check attachment metadata for poster
+                    if (empty($poster_attr)) {
+                        $video_meta = wp_get_attachment_metadata($attachment_id);
+                        if (!empty($video_meta['image']['src'])) {
+                            $poster_attr = ' poster="' . esc_url($video_meta['image']['src']) . '"';
+                        }
+                    }
+                }
+                
+                // Use preload="auto" to show first frame if no poster available
+                $preload = empty($poster_attr) ? 'auto' : 'metadata';
+                
                 echo sprintf(
-                    "<figure class=\"wp-block-video %s%s\" data-layout=\"%s\" data-width=\"%d\" data-height=\"%d\"><video controls src=\"%s\" width=\"%d\" height=\"%d\" preload=\"metadata\"></video></figure>\n",
+                    "<figure class=\"wp-block-video %s%s\" data-layout=\"%s\" data-width=\"%d\" data-height=\"%d\"><video controls src=\"%s\" width=\"%d\" height=\"%d\" preload=\"%s\"%s></video></figure>\n",
                     esc_attr($aspect_class),
                     esc_attr($layout_class),
                     esc_attr($layout),
@@ -2381,26 +2411,81 @@ function sessionale_render_gallery($gallery, $description = "") {
                     intval($height),
                     esc_url($url),
                     intval($width),
-                    intval($height)
+                    intval($height),
+                    esc_attr($preload),
+                    $poster_attr
                 );
             }
         } elseif ($type === "embed") {
             // For YouTube/Vimeo embeds, convert to proper watch URLs for oEmbed
             $embed_url = $url;
+            $video_id = '';
+            $video_platform = '';
 
-            // Convert YouTube embed URL to watch URL
-            if (preg_match('/youtube\.com\/embed\/([^?\s&]+)/', $url, $matches)) {
-                $embed_url = 'https://www.youtube.com/watch?v=' . $matches[1];
+            // Convert YouTube embed URL to watch URL and extract video ID
+            if (preg_match('/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/', $url, $matches)) {
+                $video_id = $matches[1];
+                $video_platform = 'youtube';
+                $embed_url = 'https://www.youtube.com/watch?v=' . $video_id;
+            }
+            // Handle youtu.be short URLs
+            elseif (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $url, $matches)) {
+                $video_id = $matches[1];
+                $video_platform = 'youtube';
+                $embed_url = 'https://www.youtube.com/watch?v=' . $video_id;
+            }
+            // Handle youtube.com/watch URLs
+            elseif (preg_match('/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/', $url, $matches)) {
+                $video_id = $matches[1];
+                $video_platform = 'youtube';
+                $embed_url = $url;
             }
             // Convert Vimeo embed URL to regular URL
             elseif (preg_match('/player\.vimeo\.com\/video\/(\d+)/', $url, $matches)) {
-                $embed_url = 'https://vimeo.com/' . $matches[1];
+                $video_id = $matches[1];
+                $video_platform = 'vimeo';
+                $embed_url = 'https://vimeo.com/' . $video_id;
+            }
+            // Handle regular vimeo.com URLs
+            elseif (preg_match('/vimeo\.com\/(\d+)/', $url, $matches)) {
+                $video_id = $matches[1];
+                $video_platform = 'vimeo';
+                $embed_url = $url;
             }
 
-            // Output as figure with responsive container
-            echo "<figure class=\"wp-block-embed" . esc_attr($layout_class) . "\" data-layout=\"" . esc_attr($layout) . "\">\n";
-            echo wp_oembed_get($embed_url);
-            echo "\n</figure>\n";
+            // Try oEmbed first
+            $oembed_html = wp_oembed_get($embed_url);
+
+            echo "<figure class=\"wp-block-embed is-type-video is-provider-" . esc_attr($video_platform) . esc_attr($layout_class) . "\" data-layout=\"" . esc_attr($layout) . "\">\n";
+            echo "<div class=\"wp-block-embed__wrapper\">\n";
+
+            if (!empty($oembed_html)) {
+                // oEmbed worked, output the result
+                echo $oembed_html;
+            } else {
+                // oEmbed failed, use fallback iframe
+                if ($video_platform === 'youtube' && !empty($video_id)) {
+                    // YouTube iframe fallback
+                    echo sprintf(
+                        '<div class="video-embed-container" style="position:relative;padding-bottom:56.25%%;height:0;overflow:hidden;max-width:100%%;"><iframe src="https://www.youtube.com/embed/%s?rel=0" style="position:absolute;top:0;left:0;width:100%%;height:100%%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" title="YouTube video"></iframe></div>',
+                        esc_attr($video_id)
+                    );
+                } elseif ($video_platform === 'vimeo' && !empty($video_id)) {
+                    // Vimeo iframe fallback
+                    echo sprintf(
+                        '<div class="video-embed-container" style="position:relative;padding-bottom:56.25%%;height:0;overflow:hidden;max-width:100%%;"><iframe src="https://player.vimeo.com/video/%s" style="position:absolute;top:0;left:0;width:100%%;height:100%%;border:0;" allowfullscreen allow="autoplay; fullscreen; picture-in-picture" title="Vimeo video"></iframe></div>',
+                        esc_attr($video_id)
+                    );
+                } else {
+                    // Generic iframe fallback for other embed URLs
+                    echo sprintf(
+                        '<div class="video-embed-container" style="position:relative;padding-bottom:56.25%%;height:0;overflow:hidden;max-width:100%%;"><iframe src="%s" style="position:absolute;top:0;left:0;width:100%%;height:100%%;border:0;" allowfullscreen title="Embedded video"></iframe></div>',
+                        esc_url($url)
+                    );
+                }
+            }
+
+            echo "\n</div>\n</figure>\n";
         }
     }
 }
