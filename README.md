@@ -1,6 +1,6 @@
 # Sessionale Portfolio Theme
 
-A WordPress theme for portfolio websites with Adobe Portfolio migration capabilities.
+A minimal WordPress theme for artists and creatives migrating from Adobe Portfolio. Features a one-click import wizard that automatically transfers your projects, images, and videos to a self-hosted WordPress site.
 
 ## Features
 
@@ -52,3 +52,7 @@ After activation, you'll see a notice recommending:
 - **OMGF** – Hosts Google Fonts locally for GDPR compliance
 
 These are optional but recommended for EU compliance.
+
+## Legal Compliance (Germany)
+
+For German users requiring DSGVO-compliant legal texts (Impressum, Datenschutzerklärung), consider the [IT-Recht Kanzlei AGB Starterpaket](https://www.it-recht-kanzlei.de/agb-starterpaket.php?partner_id=1380).
