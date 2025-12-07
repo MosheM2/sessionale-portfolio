@@ -24,17 +24,11 @@ The import automatically downloads high-quality images, detects duplicates, and 
 
 Emails are sent from `noreply@yourdomain.com` by default (or the address you configure in Sessionale settings).
 
-**Required:** Create this mailbox in your hosting panel so the server accepts it as a valid sender:
-- **Plesk**: Mail → Mail Accounts → Create
-- **cPanel**: Email Accounts → Create
-
-### VPS / Deliverability Issues
-
-If emails land in spam, install **WP Mail SMTP** and route emails through your hosting provider's SMTP server instead of PHP's `mail()` function.
+The "From" address must exist as a valid mailbox on your server. If emails land in spam, consider using the **WP Mail SMTP** plugin to route emails through your SMTP server.
 
 ## Server Requirements
 
-The import downloads many images. You may need to increase these PHP settings:
+The import downloads many images. Recommended PHP settings:
 
 | Setting | Recommended |
 |---------|-------------|
@@ -43,25 +37,13 @@ The import downloads many images. You may need to increase these PHP settings:
 | `post_max_size` | `64M` |
 | `upload_max_filesize` | `32M` |
 
-**How to change:**
-- **XAMPP**: Edit `xampp/php/php.ini`
-- **Plesk**: Domains → PHP Settings
-- **cPanel**: Select PHP Version → Options
-
 ## Troubleshooting
 
-**Import fails or times out:**
-- Increase `max_execution_time` and `memory_limit`
-- Check WordPress debug log for errors
+**Import fails or times out:** Increase `max_execution_time` and `memory_limit`, check WordPress debug log.
 
-**Images are low quality:**
-- Run the import again (it upgrades existing images)
-- Verify high-quality versions exist on Adobe Portfolio
+**Images are low quality:** Run the import again (it upgrades existing images).
 
-**Emails not arriving:**
-- Ensure the "From" mailbox exists on your server
-- Check spam folder
-- Use WP Mail SMTP plugin for better deliverability
+**Emails not arriving:** Ensure the "From" mailbox exists, check spam folder, use WP Mail SMTP plugin.
 
 ## Recommended Plugins
 
