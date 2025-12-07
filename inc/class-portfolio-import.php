@@ -213,7 +213,7 @@ class Portfolio_Import {
 
     /**
      * Download Adobe video from embed URL
-     * Returns attachment ID on success, false on failure
+     * Returns array with 'attachment_id' and 'poster_url' on success, false on failure
      */
     private function download_adobe_video($embed_url, $post_id, $title = '') {
         // Reset time limit for each video download
@@ -238,12 +238,21 @@ class Portfolio_Import {
                 $file_path = get_attached_file($existing_id);
                 if ($file_path && file_exists($file_path)) {
                     $this->log("Video already exists (ID: {$existing_id}), reusing");
-                    return $existing_id;
+                    // Try to get stored poster URL (local WordPress URL)
+                    $poster_attachment_id = get_post_meta($existing_id, '_video_poster_attachment_id', true);
+                    $poster_url = '';
+                    if ($poster_attachment_id) {
+                        $poster_url = wp_get_attachment_url($poster_attachment_id);
+                    }
+                    return [
+                        'attachment_id' => $existing_id,
+                        'poster_url' => $poster_url ?: ''
+                    ];
                 }
             }
         }
 
-        // Fetch the embed page to extract the MP4 URL
+        // Fetch the embed page to extract the MP4 URL and poster
         $response = wp_remote_get($embed_url, [
             'timeout' => 30,
             'headers' => [
@@ -271,6 +280,16 @@ class Portfolio_Import {
         $mp4_url = json_decode('"' . $mp4_url . '"');
 
         $this->log("Found MP4 URL: {$mp4_url}");
+
+        // Extract poster frame URL
+        // Look for: "posterframe": "https://cdn-prod-ccv.adobe.com/.../VIDEO_ID_poster.jpg?..."
+        $poster_url = '';
+        if (preg_match('/"posterframe":\s*"([^"]+)"/', $html, $poster_matches)) {
+            $poster_url = json_decode('"' . $poster_matches[1] . '"');
+            $this->log("Found poster URL: {$poster_url}");
+        } else {
+            $this->log("No poster URL found in Adobe embed page", 'warning');
+        }
 
         // Try to get higher quality version - default is 576p, try 1080 and 720
         // URL pattern: {video_id}_576.mp4 -> try {video_id}_1080.mp4
@@ -336,9 +355,43 @@ class Portfolio_Import {
 
         // Save source URL for future duplicate detection
         update_post_meta($attachment_id, '_video_source_url', $embed_url);
+        
+        // Download and save poster image (Adobe URLs have expiring tokens, so we save locally)
+        $local_poster_url = '';
+        if (!empty($poster_url)) {
+            $this->log("Downloading video poster image...");
+            
+            // Download poster
+            add_filter('http_request_args', array($this, 'add_download_headers'), 10, 2);
+            $poster_tmp = download_url($poster_url, 30);
+            remove_filter('http_request_args', array($this, 'add_download_headers'), 10);
+            
+            if (!is_wp_error($poster_tmp)) {
+                $poster_file_array = [
+                    'name' => sanitize_file_name($video_id . '_poster.jpg'),
+                    'tmp_name' => $poster_tmp
+                ];
+                
+                $poster_attachment_id = media_handle_sideload($poster_file_array, $post_id, $title . ' Poster');
+                
+                if (!is_wp_error($poster_attachment_id)) {
+                    $local_poster_url = wp_get_attachment_url($poster_attachment_id);
+                    update_post_meta($attachment_id, '_video_poster_attachment_id', $poster_attachment_id);
+                    $this->log("Poster downloaded successfully (ID: {$poster_attachment_id})");
+                } else {
+                    $this->log("Failed to sideload poster: " . $poster_attachment_id->get_error_message(), 'warning');
+                    @unlink($poster_tmp);
+                }
+            } else {
+                $this->log("Failed to download poster: " . $poster_tmp->get_error_message(), 'warning');
+            }
+        }
 
         $this->log("Successfully uploaded video with attachment ID: {$attachment_id}");
-        return $attachment_id;
+        return [
+            'attachment_id' => $attachment_id,
+            'poster_url' => $local_poster_url
+        ];
     }
 
     /**
@@ -553,7 +606,9 @@ class Portfolio_Import {
      * Add proper headers for downloading from Adobe Portfolio CDN
      */
     public function add_download_headers($args, $url) {
-        if (strpos($url, 'myportfolio.com') !== false) {
+        if (strpos($url, 'myportfolio.com') !== false || 
+            strpos($url, 'adobe.com') !== false || 
+            strpos($url, 'adobe.io') !== false) {
             $args['headers'] = array(
                 'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept' => 'image/webp,image/apng,image/*,*/*;q=0.8',
@@ -1437,9 +1492,12 @@ class Portfolio_Import {
                 if (strpos($video_url, 'adobe.io') !== false) {
                     // Adobe video - download to WordPress media library
                     $this->log("Downloading Adobe video: {$video_url}");
-                    $video_attachment_id = $this->download_adobe_video($video_url, $post_id, $title);
+                    $video_result = $this->download_adobe_video($video_url, $post_id, $title);
 
-                    if ($video_attachment_id) {
+                    if ($video_result && isset($video_result['attachment_id'])) {
+                        $video_attachment_id = $video_result['attachment_id'];
+                        $video_poster_url = isset($video_result['poster_url']) ? $video_result['poster_url'] : '';
+                        
                         // Get video URL and metadata from WordPress
                         $wp_video_url = wp_get_attachment_url($video_attachment_id);
                         $video_meta = wp_get_attachment_metadata($video_attachment_id);
@@ -1451,11 +1509,12 @@ class Portfolio_Import {
                             'type' => 'video',
                             'attachment_id' => $video_attachment_id,
                             'url' => $wp_video_url,
+                            'thumb' => $video_poster_url,
                             'width' => $video_width,
                             'height' => $video_height,
                             'layout' => 'auto'
                         ];
-                        $this->log("Video downloaded successfully (ID: {$video_attachment_id}, {$video_width}x{$video_height})");
+                        $this->log("Video downloaded successfully (ID: {$video_attachment_id}, {$video_width}x{$video_height}, poster: " . (!empty($video_poster_url) ? 'yes' : 'no') . ")");
                     } else {
                         // Fallback to embed URL if download fails
                         $this->log("Video download failed, using embed URL as fallback", 'warning');
